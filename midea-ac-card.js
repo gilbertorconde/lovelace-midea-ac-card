@@ -8,7 +8,7 @@
 //     url: /local/lovelace-midea-ac-card/midea-ac-card.js
 //
 // Usage:
-//   type: custom:custom-card-gil-ac
+//   type: custom:midea-ac-card
 //   entity: climate.living_room_ac
 //
 // All companion entity IDs are auto-derived from the climate entity name using
@@ -28,7 +28,7 @@
 //   rate_select:   select.living_room_ac_rate_select          # auto-derived
 // =============================================================================
 
-const CARD_TAG = 'custom-card-gil-ac';
+const CARD_TAG = 'midea-ac-card';
 
 // ── Mode accent colours ───────────────────────────────────────────────────────
 const MODE_COLORS = {
@@ -337,7 +337,7 @@ class AcCard extends HTMLElement {
   getCardSize() { return 8; }
 
   setConfig(cfg) {
-    if (!cfg.entity) throw new Error('custom-card-gil-ac: entity is required');
+    if (!cfg.entity) throw new Error('midea-ac-card: entity is required');
     this._config = deriveEntities(cfg);
   }
 

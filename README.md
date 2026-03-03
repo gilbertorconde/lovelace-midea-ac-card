@@ -94,7 +94,7 @@ resources:
 ### Add the card to your dashboard
 
 ```yaml
-type: custom:custom-card-gil-ac
+type: custom:midea-ac-card
 entity: climate.living_room_ac
 ```
 
@@ -125,14 +125,14 @@ All optional properties are safely ignored when omitted — their corresponding 
 ### Minimal example
 
 ```yaml
-type: custom:custom-card-gil-ac
+type: custom:midea-ac-card
 entity: climate.living_room_ac
 ```
 
 ### Full example (Midea AC LAN integration)
 
 ```yaml
-type: custom:custom-card-gil-ac
+type: custom:midea-ac-card
 entity: climate.living_room_ac
 indoor_temp: sensor.living_room_ac_indoor_temperature
 outdoor_temp: sensor.living_room_ac_outdoor_temperature
@@ -151,7 +151,7 @@ rate_select: select.living_room_ac_rate_select
 Supply only the keys whose names differ from the Midea AC LAN defaults. Set a key to `null` to disable that feature entirely:
 
 ```yaml
-type: custom:custom-card-gil-ac
+type: custom:midea-ac-card
 entity: climate.living_room_ac
 purifier: null # hide the purifier row
 display: switch.my_custom_display_entity
