@@ -199,7 +199,7 @@ If a derived entity is not found in HA states the corresponding UI element is au
 │   [−]   │       22.5 °C        │   [+]   │  ← +/− buttons
 │          ╲                    ╱          │
 │           ╰──────────────────╯           │
-│     ☁ 16.3°      🏠 23.2°      💧 48%   │  ← stats bar
+│     ☁ 16.3°      🏠 23.2°      💧 48%    │  ← stats bar
 ├──────────────────────────────────────────┤
 │  ┌────────────────┐ ┌────────────────┐   │
 │  │ Mode           │ │ Fan Speed      │   │  ← tiles (tap → bottom sheet)
@@ -210,7 +210,7 @@ If a derived entity is not found in HA states the corresponding UI element is au
 │  │ H2 V3       ↗  │ │ 〰 💤          │   │
 │  └────────────────┘ └────────────────┘   │
 ├──────────────────────────────────────────┤
-│  ♻  iECO   Improves efficiency    [●]   │  ← feature rows
+│  ♻  iECO   Improves efficiency    [●]    │  ← feature rows
 │  🖥  LED Display                   [○]    │
 │  🌿  Purifier                     [○]    │
 ├──────────────────────────────────────────┤
