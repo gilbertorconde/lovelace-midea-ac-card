@@ -1,12 +1,4 @@
----
-title: Midea AC Custom-card
-hide:
-  - toc
----
-
-<!-- markdownlint-disable MD013 -->
-
-# Custom-card "Midea AC"
+# Midea AC card for lovelace
 
 `custom_card_gil_ac` is a standalone JavaScript Lovelace card that replicates the look and feel of the official **Midea app** for Home Assistant `climate` entities.
 
