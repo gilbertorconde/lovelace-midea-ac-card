@@ -26,6 +26,7 @@
 //   swing_h_angle: select.living_room_ac_horizontal_swing_angle  # auto-derived
 //   swing_v_angle: select.living_room_ac_vertical_swing_angle    # auto-derived
 //   rate_select:   select.living_room_ac_rate_select          # auto-derived
+//   filter_alert:  binary_sensor.living_room_ac_filter_alert  # auto-derived
 // =============================================================================
 
 const CARD_TAG = 'midea-ac-card';
@@ -307,6 +308,7 @@ function deriveEntities(cfg) {
     rate_select:       `select.${n}_rate_select`,
     self_clean_sensor: `binary_sensor.${n}_self_clean`,
     self_clean_btn:    `button.${n}_start_self_clean`,
+    filter_alert:      `binary_sensor.${n}_filter_alert`,
   };
 
   const resolved = { ...cfg };
@@ -351,7 +353,7 @@ class AcCard extends HTMLElement {
       cfg.entity, cfg.indoor_temp, cfg.outdoor_temp, cfg.fan_speed,
       cfg.display, cfg.breeze_away, cfg.breezeless, cfg.purifier,
       cfg.swing_h_angle, cfg.swing_v_angle, cfg.rate_select,
-      cfg.self_clean_sensor,
+      cfg.self_clean_sensor, cfg.filter_alert,
     ].filter(Boolean);
 
     // Skip re-render if nothing relevant changed, or while user is dragging the arc
@@ -453,6 +455,25 @@ class AcCard extends HTMLElement {
 @keyframes sc-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: .4; }
+}
+/* ── Filter alert badge ── */
+.filter-alert-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid #ff9800;
+  background: rgba(255, 152, 0, 0.12);
+  cursor: default;
+  color: #ff9800;
+  padding: 0;
+  flex-shrink: 0;
+  animation: filter-pulse 2s ease-in-out infinite;
+}
+@keyframes filter-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .5; }
 }
 .chip {
   display: flex;
@@ -956,6 +977,10 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     const selfCleanOn   = selfCleanEnt?.state === 'on';
     const selfCleanHide = !cfg.self_clean_btn && !cfg.self_clean_sensor;
 
+    // ── Filter alert ───────────────────────────────────────────────────────────
+    const filterAlertEnt = cfg.filter_alert ? hass.states[cfg.filter_alert] : null;
+    const filterAlertOn  = filterAlertEnt?.state === 'on';
+
     return `
 <div class="card" style="--mode-color:${mc};--chip-bg:${chipBg}">
 
@@ -963,6 +988,12 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
   <div class="header">
     <span class="name">${attrs.friendly_name || cfg.entity}</span>
     <div class="header-right">
+      ${filterAlertOn ? `
+      <span class="filter-alert-btn" title="Filter needs cleaning">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M13 13v6.59L15.59 22H8.41L11 19.59V13l-9-9V2h20v2z"/>
+        </svg>
+      </span>` : ''}
       ${!selfCleanHide ? `
       <button class="self-clean-btn${selfCleanOn ? ' running' : ''}"
               data-action="start-self-clean"
