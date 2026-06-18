@@ -18,6 +18,7 @@
 // Override any individual entity if its name differs (or set to null to disable):
 //   indoor_temp:   sensor.living_room_ac_indoor_temperature   # auto-derived
 //   outdoor_temp:  sensor.living_room_ac_outdoor_temperature  # auto-derived
+//   power:         sensor.living_room_ac_power                # auto-derived
 //   fan_speed:     number.living_room_ac_fan_speed            # auto-derived
 //   display:       switch.living_room_ac_display              # auto-derived
 //   breeze_away:   switch.living_room_ac_breeze_away          # auto-derived
@@ -298,6 +299,7 @@ function deriveEntities(cfg) {
   const defaults = {
     indoor_temp:       `sensor.${n}_indoor_temperature`,
     outdoor_temp:      `sensor.${n}_outdoor_temperature`,
+    power:             `sensor.${n}_power`,
     fan_speed:         `number.${n}_fan_speed`,
     display:           `switch.${n}_display`,
     breeze_away:       `switch.${n}_breeze_away`,
@@ -350,7 +352,7 @@ class AcCard extends HTMLElement {
     // Collect all entity IDs this card cares about
     const cfg = this._config;
     const ids = [
-      cfg.entity, cfg.indoor_temp, cfg.outdoor_temp, cfg.fan_speed,
+      cfg.entity, cfg.indoor_temp, cfg.outdoor_temp, cfg.power, cfg.fan_speed,
       cfg.display, cfg.breeze_away, cfg.breezeless, cfg.purifier,
       cfg.swing_h_angle, cfg.swing_v_angle, cfg.rate_select,
       cfg.self_clean_sensor, cfg.filter_alert,
@@ -936,6 +938,14 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     const outdoorEid = cfg.outdoor_temp;
     const outdoorRaw = outdoorEid && hass.states[outdoorEid]?.state;
     const outdoorT   = outdoorRaw && !isNaN(+outdoorRaw) ? (+outdoorRaw).toFixed(1) : null;
+    // Power is only shown when the sensor exists and reports a finite number,
+    // so ACs that don't expose power simply omit the reading.
+    const powerEnt   = cfg.power ? hass.states[cfg.power] : null;
+    const powerNum   = (!isUnavail(powerEnt) && powerEnt && isFinite(+powerEnt.state)) ? +powerEnt.state : null;
+    const powerUnit  = powerEnt?.attributes?.unit_of_measurement || 'W';
+    const powerDisp  = powerNum == null
+      ? null
+      : (/^kw$/i.test(powerUnit) ? powerNum.toFixed(1) : Math.round(powerNum)) + ' ' + powerUnit;
 
     // ── Tile data ──────────────────────────────────────────────────────────
     const fanLabel   = FAN_LABELS[attrs.fan_mode] || attrs.fan_mode || '—';
@@ -1033,6 +1043,7 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     ${outdoorT ? `<span class="stat"><span class="stat-icon">☁</span>${outdoorT}°</span>` : ''}
     <span class="stat"><span class="stat-icon">🏠</span>${curTemp}°</span>
     ${humidity != null ? `<span class="stat"><span class="stat-icon">💧</span>${humidity}%</span>` : ''}
+    ${powerDisp ? `<span class="stat"><span class="stat-icon">⚡</span>${powerDisp}</span>` : ''}
   </div>
 
   <div class="sep"></div>
