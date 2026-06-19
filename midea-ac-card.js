@@ -279,6 +279,27 @@ function isUnavail(entityState) {
   return !entityState || entityState.state === 'unavailable' || entityState.state === 'unknown';
 }
 
+/** Format a duration in minutes as a compact human string, e.g. 90 → "1h 30m". */
+function fmtDuration(minutes) {
+  const m = Math.round(minutes || 0);
+  if (m <= 0) return 'Off';
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  if (h && mm) return `${h}h ${mm}m`;
+  if (h) return `${h}h`;
+  return `${mm}m`;
+}
+
+/** Read a timer number entity's value in minutes (0 when unset/unavailable). */
+function timerMinutes(entityState) {
+  if (isUnavail(entityState)) return 0;
+  const v = +entityState.state;
+  return isNaN(v) ? 0 : v;
+}
+
+// Preset durations (minutes) offered in the timer sheet
+const TIMER_PRESETS = [0, 30, 60, 120, 240, 480];
+
 /**
  * Given a user config object, fills in any missing optional entity IDs by
  * deriving them from the climate entity name using the Midea AC LAN
@@ -311,6 +332,8 @@ function deriveEntities(cfg) {
     self_clean_sensor: `binary_sensor.${n}_self_clean`,
     self_clean_btn:    `button.${n}_start_self_clean`,
     filter_alert:      `binary_sensor.${n}_filter_alert`,
+    power_on_timer:    `number.${n}_power_on_timer`,
+    power_off_timer:   `number.${n}_power_off_timer`,
   };
 
   const resolved = { ...cfg };
@@ -607,6 +630,7 @@ class AcCard extends HTMLElement {
 .tile:hover { filter: brightness(.95); }
 .tile:active { filter: brightness(.9); }
 .tile.active { border-left-color: var(--mode-color); }
+.tile-wide { grid-column: 1 / -1; }
 .tile-lbl { font-size: 12px; color: var(--secondary-text-color); font-weight: 500; }
 .tile-row { display: flex; align-items: center; justify-content: space-between; }
 .tile-val { font-size: 15px; font-weight: 600; }
@@ -901,6 +925,11 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
   font-size: 13px;
   padding: 4px 0;
 }
+.timer-cur {
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
 `;
   }
 
@@ -991,6 +1020,19 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     const filterAlertEnt = cfg.filter_alert ? hass.states[cfg.filter_alert] : null;
     const filterAlertOn  = filterAlertEnt?.state === 'on';
 
+    // ── Timers ───────────────────────────────────────────────────────────────
+    const onTimerEnt   = cfg.power_on_timer  ? hass.states[cfg.power_on_timer]  : null;
+    const offTimerEnt  = cfg.power_off_timer ? hass.states[cfg.power_off_timer] : null;
+    const onTimerMin   = timerMinutes(onTimerEnt);
+    const offTimerMin  = timerMinutes(offTimerEnt);
+    const timerHide    = !cfg.power_on_timer && !cfg.power_off_timer;
+    const timerActive  = onTimerMin > 0 || offTimerMin > 0;
+    // Concise tile summary, e.g. "On in 1h" / "Off in 30m" / "On 1h · Off 2h"
+    const timerParts   = [];
+    if (onTimerMin > 0)  timerParts.push(`On in ${fmtDuration(onTimerMin)}`);
+    if (offTimerMin > 0) timerParts.push(`Off in ${fmtDuration(offTimerMin)}`);
+    const timerSummary = timerParts.join(' · ') || 'Off';
+
     return `
 <div class="card" style="--mode-color:${mc};--chip-bg:${chipBg}">
 
@@ -1043,7 +1085,7 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     ${outdoorT ? `<span class="stat"><span class="stat-icon">☁</span>${outdoorT}°</span>` : ''}
     <span class="stat"><span class="stat-icon">🏠</span>${curTemp}°</span>
     ${humidity != null ? `<span class="stat"><span class="stat-icon">💧</span>${humidity}%</span>` : ''}
-    ${powerDisp ? `<span class="stat"><span class="stat-icon">⚡</span>${powerDisp}</span>` : ''}
+    ${powerDisp != null ? `<span class="stat"><span class="stat-icon">⚡</span>${powerDisp}</span>` : ''}
   </div>
 
   <div class="sep"></div>
@@ -1078,6 +1120,14 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
         <span class="tile-icon">〰</span>
       </div>
     </div>
+    ${timerHide ? '' : `
+    <div class="tile tile-wide${timerActive ? ' active' : ''}" data-action="open-timer">
+      <span class="tile-lbl">Timer</span>
+      <div class="tile-row">
+        <span class="tile-val">${timerSummary}</span>
+        <span class="tile-icon">⏱</span>
+      </div>
+    </div>`}
   </div>
 
   <div class="sep"></div>
@@ -1159,6 +1209,14 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     <div class="sheet-title">Breeze & Presets</div>
     ${this._breezeSheetHtml(attrs, mc, mode)}
   </div>
+
+  ${timerHide ? '' : `
+  <!-- ── Timer sheet ── -->
+  <div class="sheet" data-sheet="timer">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Timer</div>
+    ${this._timerSheetHtml(acOff, onTimerMin, offTimerMin)}
+  </div>`}
 
 </div>`;
   }
@@ -1348,6 +1406,35 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     </div>`;
   }
 
+  _timerSheetHtml(acOff, onTimerMin, offTimerMin) {
+    const { _config: cfg } = this;
+
+    // Build a row of preset-duration pills for a given timer
+    const pills = (currentMin, action) => TIMER_PRESETS.map(min => {
+      const active = min === 0 ? currentMin <= 0 : Math.round(currentMin) === min;
+      return `<button class="pill${active ? ' active' : ''}"
+                      data-action="${action}" data-val="${min}">${min === 0 ? 'Off' : fmtDuration(min)}</button>`;
+    }).join('');
+
+    // Power-on timer only makes sense while the AC is off
+    const onSection = cfg.power_on_timer ? `
+    <div class="sheet-sec">Turn On Automatically</div>
+    ${acOff
+      ? `<div class="timer-cur">${onTimerMin > 0 ? `Powers on in ${fmtDuration(onTimerMin)}` : 'No power-on timer set'}</div>
+         <div class="pill-row">${pills(onTimerMin, 'set-on-timer')}</div>`
+      : '<p class="no-items">AC is already on</p>'}` : '';
+
+    // Power-off timer only makes sense while the AC is running
+    const offSection = cfg.power_off_timer ? `
+    <div class="sheet-sec">Turn Off Automatically</div>
+    ${!acOff
+      ? `<div class="timer-cur">${offTimerMin > 0 ? `Powers off in ${fmtDuration(offTimerMin)}` : 'No power-off timer set'}</div>
+         <div class="pill-row">${pills(offTimerMin, 'set-off-timer')}</div>`
+      : '<p class="no-items">Turn on the AC first</p>'}` : '';
+
+    return `${onSection}${offSection}`;
+  }
+
   // ── Dial drag ────────────────────────────────────────────────────────────
 
   _bindDialEvents(svg) {
@@ -1515,6 +1602,7 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       case 'open-fan':     this._openSheet('fan');     return;
       case 'open-airflow': this._openSheet('airflow'); return;
       case 'open-breeze':  this._openSheet('breeze');  return;
+      case 'open-timer':   this._openSheet('timer');   return;
 
       // ── Temperature ──────────────────────────────────────────────────────
       case 'temp-up':
@@ -1623,6 +1711,16 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       case 'set-rate':
         if (cfg.rate_select)
           this._call('select', 'select_option', { entity_id: cfg.rate_select, option: val });
+        break;
+
+      // ── Timer sheet ───────────────────────────────────────────────────────
+      case 'set-on-timer':
+        if (cfg.power_on_timer)
+          this._call('number', 'set_value', { entity_id: cfg.power_on_timer, value: +val });
+        break;
+      case 'set-off-timer':
+        if (cfg.power_off_timer)
+          this._call('number', 'set_value', { entity_id: cfg.power_off_timer, value: +val });
         break;
 
       // ── Feature rows ──────────────────────────────────────────────────────
