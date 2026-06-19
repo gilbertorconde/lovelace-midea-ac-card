@@ -1,5 +1,5 @@
 // =============================================================================
-// Midea AC Control Card  v2.0.0
+// Midea AC Control Card  v2.1.0
 // Inspired by the official Midea app UI.
 //
 // Install via HACS (search "Midea AC Card") or manually:
@@ -28,6 +28,25 @@
 //   swing_v_angle: select.living_room_ac_vertical_swing_angle    # auto-derived
 //   rate_select:   select.living_room_ac_rate_select          # auto-derived
 //   filter_alert:  binary_sensor.living_room_ac_filter_alert  # auto-derived
+//   power_on_timer:  number.living_room_ac_power_on_timer      # auto-derived
+//   power_off_timer: number.living_room_ac_power_off_timer     # auto-derived
+//
+// Extended comfort entities (disabled-by-default in the integration; the
+// "Comfort & Extras" sheet and its controls appear only for the ones you enable):
+//   fresh_air:           switch.living_room_ac_fresh_air            # auto-derived
+//   fresh_air_fan_speed: number.living_room_ac_fresh_air_fan_speed  # auto-derived
+//   comfort_sleep:       switch.living_room_ac_comfort_sleep        # auto-derived
+//   cosy_sleep_mode:     number.living_room_ac_cosy_sleep_mode      # auto-derived
+//   night_light:         switch.living_room_ac_night_light          # auto-derived
+//   pmv:                 switch.living_room_ac_pmv                  # auto-derived
+//   power_save:          switch.living_room_ac_power_save           # auto-derived
+//   low_frequency_fan:   switch.living_room_ac_low_frequency_fan    # auto-derived
+//   ventilation:         switch.living_room_ac_ventilation          # auto-derived
+//   anti_cold:           switch.living_room_ac_anti_cold            # auto-derived
+//   diy:                 switch.living_room_ac_diy                  # auto-derived
+//   smart_eye:           switch.living_room_ac_smart_eye            # auto-derived
+//   reset_filter:           button.living_room_ac_reset_filter            # auto-derived
+//   reset_fresh_air_filter: button.living_room_ac_reset_fresh_air_filter  # auto-derived
 // =============================================================================
 
 const CARD_TAG = 'midea-ac-card';
@@ -300,6 +319,31 @@ function timerMinutes(entityState) {
 // Preset durations (minutes) offered in the timer sheet
 const TIMER_PRESETS = [0, 30, 60, 120, 240, 480];
 
+// On/off comfort toggles surfaced in the "Comfort & Extras" sheet (config keys).
+const EXTRAS_TOGGLE_KEYS = [
+  'fresh_air', 'comfort_sleep', 'night_light', 'pmv', 'power_save',
+  'low_frequency_fan', 'ventilation', 'anti_cold', 'diy', 'smart_eye',
+];
+// All keys whose presence reveals the Comfort & Extras tile (toggles + numbers + buttons).
+const EXTRAS_KEYS = [
+  ...EXTRAS_TOGGLE_KEYS, 'fresh_air_fan_speed', 'cosy_sleep_mode',
+  'reset_filter', 'reset_fresh_air_filter',
+];
+
+// Display metadata for the comfort toggle rows: icon + friendly label + description.
+const EXTRAS_TOGGLE_META = {
+  fresh_air:         { icon: '🌬', name: 'Fresh Air',        desc: 'Draw in outside air' },
+  comfort_sleep:     { icon: '🌙', name: 'Sleep Comfort',    desc: 'Gradual sleep temperature curve' },
+  night_light:       { icon: '💡', name: 'Night Light',      desc: 'Unit indicator light' },
+  pmv:               { icon: '🌡', name: 'PMV Comfort',       desc: 'Predicted-mean-vote comfort mode' },
+  power_save:        { icon: '🔋', name: 'Power Save',        desc: 'Reduce power consumption' },
+  low_frequency_fan: { icon: '🪶', name: 'Low-Frequency Fan', desc: 'Quieter low-frequency airflow' },
+  ventilation:      { icon: '♻', name: 'Ventilation',       desc: 'Air exchange with outside' },
+  anti_cold:         { icon: '❄', name: 'Anti-Cold',         desc: 'Prevent cold draft on start' },
+  diy:               { icon: '🛠', name: 'DIY Mode',          desc: 'Custom user profile' },
+  smart_eye:         { icon: '👁', name: 'Smart Eye',         desc: 'Occupancy / body sensing' },
+};
+
 /**
  * Given a user config object, fills in any missing optional entity IDs by
  * deriving them from the climate entity name using the Midea AC LAN
@@ -334,6 +378,21 @@ function deriveEntities(cfg) {
     filter_alert:      `binary_sensor.${n}_filter_alert`,
     power_on_timer:    `number.${n}_power_on_timer`,
     power_off_timer:   `number.${n}_power_off_timer`,
+    // Extended comfort features (disabled-by-default entities in the integration)
+    fresh_air:           `switch.${n}_fresh_air`,
+    fresh_air_fan_speed: `number.${n}_fresh_air_fan_speed`,
+    comfort_sleep:       `switch.${n}_comfort_sleep`,
+    cosy_sleep_mode:     `number.${n}_cosy_sleep_mode`,
+    night_light:         `switch.${n}_night_light`,
+    pmv:                 `switch.${n}_pmv`,
+    power_save:          `switch.${n}_power_save`,
+    low_frequency_fan:   `switch.${n}_low_frequency_fan`,
+    ventilation:         `switch.${n}_ventilation`,
+    anti_cold:           `switch.${n}_anti_cold`,
+    diy:                 `switch.${n}_diy`,
+    smart_eye:           `switch.${n}_smart_eye`,
+    reset_filter:           `button.${n}_reset_filter`,
+    reset_fresh_air_filter: `button.${n}_reset_fresh_air_filter`,
   };
 
   const resolved = { ...cfg };
@@ -362,6 +421,19 @@ class AcCard extends HTMLElement {
 
   getCardSize() { return 8; }
 
+  // Returns the hass state object for a configured entity key, or null when the
+  // key isn't configured or the entity doesn't exist in hass.
+  _entity(key) {
+    const id = this._config?.[key];
+    return id && this._hass ? (this._hass.states[id] || null) : null;
+  }
+
+  // True when the configured entity for `key` exists in hass (any value).
+  // Used to progressively reveal controls only for entities the user enabled.
+  _present(key) {
+    return !!this._entity(key);
+  }
+
   setConfig(cfg) {
     if (!cfg.entity) throw new Error('midea-ac-card: entity is required');
     this._config = deriveEntities(cfg);
@@ -379,6 +451,12 @@ class AcCard extends HTMLElement {
       cfg.display, cfg.breeze_away, cfg.breezeless, cfg.purifier,
       cfg.swing_h_angle, cfg.swing_v_angle, cfg.rate_select,
       cfg.self_clean_sensor, cfg.filter_alert,
+      cfg.power_on_timer, cfg.power_off_timer,
+      // Extended comfort features (disabled-by-default entities)
+      cfg.fresh_air, cfg.fresh_air_fan_speed, cfg.comfort_sleep, cfg.cosy_sleep_mode,
+      cfg.night_light, cfg.pmv, cfg.power_save, cfg.low_frequency_fan,
+      cfg.ventilation, cfg.anti_cold, cfg.diy, cfg.smart_eye,
+      cfg.reset_filter, cfg.reset_fresh_air_filter,
     ].filter(Boolean);
 
     // Skip re-render if nothing relevant changed, or while user is dragging the arc
@@ -1020,18 +1098,24 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     const filterAlertEnt = cfg.filter_alert ? hass.states[cfg.filter_alert] : null;
     const filterAlertOn  = filterAlertEnt?.state === 'on';
 
-    // ── Timers ───────────────────────────────────────────────────────────────
+    // ── Timers (two independent tiles: power-on / power-off) ───────────────────
     const onTimerEnt   = cfg.power_on_timer  ? hass.states[cfg.power_on_timer]  : null;
     const offTimerEnt  = cfg.power_off_timer ? hass.states[cfg.power_off_timer] : null;
     const onTimerMin   = timerMinutes(onTimerEnt);
     const offTimerMin  = timerMinutes(offTimerEnt);
-    const timerHide    = !cfg.power_on_timer && !cfg.power_off_timer;
-    const timerActive  = onTimerMin > 0 || offTimerMin > 0;
-    // Concise tile summary, e.g. "On in 1h" / "Off in 30m" / "On 1h · Off 2h"
-    const timerParts   = [];
-    if (onTimerMin > 0)  timerParts.push(`On in ${fmtDuration(onTimerMin)}`);
-    if (offTimerMin > 0) timerParts.push(`Off in ${fmtDuration(offTimerMin)}`);
-    const timerSummary = timerParts.join(' · ') || 'Off';
+    // Each tile hides only when its own backing entity isn't configured
+    const onTimerHide  = !cfg.power_on_timer;
+    const offTimerHide = !cfg.power_off_timer;
+    const onTimerSummary  = onTimerMin  > 0 ? `in ${fmtDuration(onTimerMin)}`  : 'Off';
+    const offTimerSummary = offTimerMin > 0 ? `in ${fmtDuration(offTimerMin)}` : 'Off';
+
+    // ── Comfort & Extras ───────────────────────────────────────────────────────
+    // Only surface controls whose entities exist (all are disabled-by-default in
+    // the integration). The tile hides entirely when none are present.
+    const extrasPresent     = EXTRAS_KEYS.some(k => this._present(k));
+    const extrasActiveCount = EXTRAS_TOGGLE_KEYS
+      .filter(k => this._entity(k)?.state === 'on').length;
+    const extrasSummary     = extrasActiveCount > 0 ? `${extrasActiveCount} active` : '—';
 
     return `
 <div class="card" style="--mode-color:${mc};--chip-bg:${chipBg}">
@@ -1120,12 +1204,28 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
         <span class="tile-icon">〰</span>
       </div>
     </div>
-    ${timerHide ? '' : `
-    <div class="tile tile-wide${timerActive ? ' active' : ''}" data-action="open-timer">
-      <span class="tile-lbl">Timer</span>
+    ${onTimerHide ? '' : `
+    <div class="tile${onTimerMin > 0 ? ' active' : ''}" data-action="open-timer-on">
+      <span class="tile-lbl">Power On</span>
       <div class="tile-row">
-        <span class="tile-val">${timerSummary}</span>
+        <span class="tile-val">${onTimerSummary}</span>
         <span class="tile-icon">⏱</span>
+      </div>
+    </div>`}
+    ${offTimerHide ? '' : `
+    <div class="tile${offTimerMin > 0 ? ' active' : ''}" data-action="open-timer-off">
+      <span class="tile-lbl">Power Off</span>
+      <div class="tile-row">
+        <span class="tile-val">${offTimerSummary}</span>
+        <span class="tile-icon">⏱</span>
+      </div>
+    </div>`}
+    ${!extrasPresent ? '' : `
+    <div class="tile tile-wide${extrasActiveCount > 0 ? ' active' : ''}" data-action="open-extras">
+      <span class="tile-lbl">Comfort &amp; Extras</span>
+      <div class="tile-row">
+        <span class="tile-val">${extrasSummary}</span>
+        <span class="tile-icon">✨</span>
       </div>
     </div>`}
   </div>
@@ -1210,12 +1310,28 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     ${this._breezeSheetHtml(attrs, mc, mode)}
   </div>
 
-  ${timerHide ? '' : `
-  <!-- ── Timer sheet ── -->
-  <div class="sheet" data-sheet="timer">
+  ${onTimerHide ? '' : `
+  <!-- ── Power-on timer sheet ── -->
+  <div class="sheet" data-sheet="timer-on">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">Timer</div>
-    ${this._timerSheetHtml(acOff, onTimerMin, offTimerMin)}
+    <div class="sheet-title">Turn On Automatically</div>
+    ${this._timerSheetHtml('on', acOff, onTimerMin)}
+  </div>`}
+
+  ${offTimerHide ? '' : `
+  <!-- ── Power-off timer sheet ── -->
+  <div class="sheet" data-sheet="timer-off">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Turn Off Automatically</div>
+    ${this._timerSheetHtml('off', acOff, offTimerMin)}
+  </div>`}
+
+  ${!extrasPresent ? '' : `
+  <!-- ── Comfort & Extras sheet ── -->
+  <div class="sheet" data-sheet="extras">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Comfort &amp; Extras</div>
+    ${this._extrasSheetHtml(acOff)}
   </div>`}
 
 </div>`;
@@ -1406,33 +1522,122 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     </div>`;
   }
 
-  _timerSheetHtml(acOff, onTimerMin, offTimerMin) {
-    const { _config: cfg } = this;
+  _timerSheetHtml(which, acOff, currentMin) {
+    const action = which === 'on' ? 'set-on-timer' : 'set-off-timer';
 
-    // Build a row of preset-duration pills for a given timer
-    const pills = (currentMin, action) => TIMER_PRESETS.map(min => {
+    // Build a row of preset-duration pills for this timer
+    const pills = TIMER_PRESETS.map(min => {
       const active = min === 0 ? currentMin <= 0 : Math.round(currentMin) === min;
       return `<button class="pill${active ? ' active' : ''}"
                       data-action="${action}" data-val="${min}">${min === 0 ? 'Off' : fmtDuration(min)}</button>`;
     }).join('');
 
-    // Power-on timer only makes sense while the AC is off
-    const onSection = cfg.power_on_timer ? `
-    <div class="sheet-sec">Turn On Automatically</div>
-    ${acOff
-      ? `<div class="timer-cur">${onTimerMin > 0 ? `Powers on in ${fmtDuration(onTimerMin)}` : 'No power-on timer set'}</div>
-         <div class="pill-row">${pills(onTimerMin, 'set-on-timer')}</div>`
-      : '<p class="no-items">AC is already on</p>'}` : '';
+    if (which === 'on') {
+      // Power-on timer only makes sense while the AC is off
+      return acOff
+        ? `<div class="timer-cur">${currentMin > 0 ? `Powers on in ${fmtDuration(currentMin)}` : 'No power-on timer set'}</div>
+           <div class="pill-row">${pills}</div>`
+        : '<p class="no-items">AC is already on</p>';
+    }
 
     // Power-off timer only makes sense while the AC is running
-    const offSection = cfg.power_off_timer ? `
-    <div class="sheet-sec">Turn Off Automatically</div>
-    ${!acOff
-      ? `<div class="timer-cur">${offTimerMin > 0 ? `Powers off in ${fmtDuration(offTimerMin)}` : 'No power-off timer set'}</div>
-         <div class="pill-row">${pills(offTimerMin, 'set-off-timer')}</div>`
-      : '<p class="no-items">Turn on the AC first</p>'}` : '';
+    return !acOff
+      ? `<div class="timer-cur">${currentMin > 0 ? `Powers off in ${fmtDuration(currentMin)}` : 'No power-off timer set'}</div>
+         <div class="pill-row">${pills}</div>`
+      : '<p class="no-items">Turn on the AC first</p>';
+  }
 
-    return `${onSection}${offSection}`;
+  _extrasSheetHtml(acOff) {
+    const cfg = this._config;
+    const sections = [];
+
+    // Build a standard feature row (icon + name/desc + toggle) for a switch key
+    const toggleRow = (key, meta) => {
+      const ent = this._entity(key);
+      const unavail = isUnavail(ent);
+      const on = !unavail && ent.state === 'on';
+      return `
+      <div class="feature${unavail ? ' unavail' : ''}">
+        <div class="feature-ico">${meta.icon}</div>
+        <div class="feature-info">
+          <div class="feature-name">${meta.name}</div>
+          <div class="feature-desc">${unavail ? 'Unavailable — turn on AC first' : meta.desc}</div>
+        </div>
+        <button class="tog${on ? ' on' : ''}" data-action="toggle-switch"
+                data-entity="${cfg[key]}" ${unavail ? 'disabled' : ''}></button>
+      </div>`;
+    };
+
+    // ── Fresh Air: toggle + fan-speed slider ────────────────────────────────
+    if (this._present('fresh_air')) {
+      const faEnt = this._entity('fresh_air');
+      const faOn = !isUnavail(faEnt) && faEnt.state === 'on';
+      const speedEnt = this._entity('fresh_air_fan_speed');
+      const spUnavail = isUnavail(speedEnt);
+      const spRaw = speedEnt && !spUnavail ? +speedEnt.state : NaN;
+      const spVal = isNaN(spRaw) ? 50 : Math.min(Math.round(spRaw), 100);
+      const spMin = speedEnt?.attributes?.min ?? 1;
+      const spMax = speedEnt?.attributes?.max ?? 100;
+      // Speed slider is only meaningful while fresh air is on
+      const sliderDisabled = !faOn || spUnavail;
+      sections.push(`
+      <div class="sheet-sec">Fresh Air</div>
+      ${toggleRow('fresh_air', EXTRAS_TOGGLE_META.fresh_air)}
+      ${speedEnt ? `
+      <div class="${sliderDisabled ? 'dim' : ''}" style="margin-top:12px">
+        <div class="slider-head">
+          <span class="slider-lbl">Fresh air speed</span>
+          <span class="slider-val" id="fresh-air-val">${spUnavail ? 'Unavailable' : spVal + '%'}</span>
+        </div>
+        <input type="range" id="fresh-air-slider" data-action="fresh-air-slider"
+               min="${spMin}" max="${spMax}" value="${spVal}" ${sliderDisabled ? 'disabled' : ''}>
+      </div>` : ''}`);
+    }
+
+    // ── Sleep: comfort_sleep toggle + cosy sleep curve (0-3) ─────────────────
+    if (this._present('comfort_sleep') || this._present('cosy_sleep_mode')) {
+      const parts = ['<div class="sheet-sec">Sleep</div>'];
+      if (this._present('comfort_sleep')) {
+        parts.push(toggleRow('comfort_sleep', EXTRAS_TOGGLE_META.comfort_sleep));
+      }
+      if (this._present('cosy_sleep_mode')) {
+        const cmEnt = this._entity('cosy_sleep_mode');
+        const cmUnavail = isUnavail(cmEnt);
+        const cmVal = cmUnavail ? -1 : Math.round(+cmEnt.state);
+        const curvePills = ['Off', '1', '2', '3'].map((lbl, i) =>
+          `<button class="pill${cmVal === i ? ' active' : ''}${cmUnavail ? ' unavail' : ''}"
+                   data-action="set-cosy-curve" data-val="${i}">${lbl}</button>`).join('');
+        parts.push(`
+        <div class="louver-axis-lbl" style="margin-top:8px">Sleep curve</div>
+        ${cmUnavail ? '<p class="no-items">Unavailable — turn on AC first</p>' : `<div class="pill-row">${curvePills}</div>`}`);
+      }
+      sections.push(parts.join(''));
+    }
+
+    // ── Comfort toggles ──────────────────────────────────────────────────────
+    const rowKeys = ['night_light', 'pmv', 'power_save', 'low_frequency_fan',
+                     'ventilation', 'anti_cold', 'diy', 'smart_eye'];
+    const rows = rowKeys
+      .filter(k => this._present(k))
+      .map(k => toggleRow(k, EXTRAS_TOGGLE_META[k]))
+      .join('');
+    if (rows) sections.push(`<div class="sheet-sec">Comfort</div>${rows}`);
+
+    // ── Filter maintenance: reset buttons ────────────────────────────────────
+    const fbtns = [];
+    if (this._present('reset_filter')) {
+      fbtns.push(`<button class="pill" data-action="press-button"
+                          data-entity="${cfg.reset_filter}">Reset filter</button>`);
+    }
+    if (this._present('reset_fresh_air_filter')) {
+      fbtns.push(`<button class="pill" data-action="press-button"
+                          data-entity="${cfg.reset_fresh_air_filter}">Reset fresh-air filter</button>`);
+    }
+    if (fbtns.length) {
+      sections.push(`<div class="sheet-sec">Filter Maintenance</div><div class="pill-row">${fbtns.join('')}</div>`);
+    }
+
+    return sections.join('') || '<p class="no-items">No extra features available.</p>';
   }
 
   // ── Dial drag ────────────────────────────────────────────────────────────
@@ -1602,7 +1807,9 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       case 'open-fan':     this._openSheet('fan');     return;
       case 'open-airflow': this._openSheet('airflow'); return;
       case 'open-breeze':  this._openSheet('breeze');  return;
-      case 'open-timer':   this._openSheet('timer');   return;
+      case 'open-timer-on':  this._openSheet('timer-on');  return;
+      case 'open-timer-off': this._openSheet('timer-off'); return;
+      case 'open-extras':    this._openSheet('extras');    return;
 
       // ── Temperature ──────────────────────────────────────────────────────
       case 'temp-up':
@@ -1733,24 +1940,39 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       case 'toggle-switch':
         this._call('switch', 'toggle', { entity_id: eid });
         break;
+
+      // ── Comfort & Extras sheet ─────────────────────────────────────────────
+      case 'set-cosy-curve':
+        if (cfg.cosy_sleep_mode)
+          this._call('number', 'set_value', { entity_id: cfg.cosy_sleep_mode, value: +val });
+        break;
+      case 'press-button':
+        if (eid) this._call('button', 'press', { entity_id: eid });
+        break;
     }
   }
 
   // ── Input handling (fan speed slider) ────────────────────────────────────
 
   _onInput(e) {
-    if (e.target.id !== 'fan-slider') return;
+    // Map slider id -> { label element id, target entity config key }
+    const sliders = {
+      'fan-slider':        { labelId: 'fan-val',        entityKey: 'fan_speed' },
+      'fresh-air-slider':  { labelId: 'fresh-air-val',  entityKey: 'fresh_air_fan_speed' },
+    };
+    const slider = sliders[e.target.id];
+    if (!slider) return;
+
     const v = e.target.value;
-    const label = this.shadowRoot.getElementById('fan-val');
+    const label = this.shadowRoot.getElementById(slider.labelId);
     if (label) label.textContent = v + '%';
-    // Debounce: only call service 400 ms after user stops moving slider
+
+    // Debounce: only call service 400 ms after user stops moving the slider
     clearTimeout(this._fanTimer);
     this._fanTimer = setTimeout(() => {
-      if (this._config.fan_speed)
-        this._call('number', 'set_value', {
-          entity_id: this._config.fan_speed,
-          value: +v,
-        });
+      const entityId = this._config[slider.entityKey];
+      if (entityId)
+        this._call('number', 'set_value', { entity_id: entityId, value: +v });
     }, 400);
   }
 
