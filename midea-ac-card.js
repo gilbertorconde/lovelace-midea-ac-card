@@ -1206,7 +1206,7 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     </div>
     ${onTimerHide ? '' : `
     <div class="tile${onTimerMin > 0 ? ' active' : ''}" data-action="open-timer-on">
-      <span class="tile-lbl">Power On</span>
+      <span class="tile-lbl">Start Delay</span>
       <div class="tile-row">
         <span class="tile-val">${onTimerSummary}</span>
         <span class="tile-icon">⏱</span>
@@ -1214,7 +1214,7 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     </div>`}
     ${offTimerHide ? '' : `
     <div class="tile${offTimerMin > 0 ? ' active' : ''}" data-action="open-timer-off">
-      <span class="tile-lbl">Power Off</span>
+      <span class="tile-lbl">Stop Delay</span>
       <div class="tile-row">
         <span class="tile-val">${offTimerSummary}</span>
         <span class="tile-icon">⏱</span>
