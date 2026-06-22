@@ -2,7 +2,7 @@
 
 `custom_card_gil_ac` is a standalone JavaScript Lovelace card that replicates the look and feel of the official **Midea app** for Home Assistant `climate` entities.
 
-> **Required integration:** This card is designed specifically for the [**Midea Smart AC**](https://github.com/mill1000/midea-ac-py) custom integration by [@mill1000](https://github.com/mill1000), which controls Midea (and associated brands — Carrier, Toshiba, Samsung, LG, Electrolux, and many more) air conditioners via LAN. Install it via HACS or manually before using this card.
+> **Required integration:** This card is designed specifically for the [**Midea Smart AC**](https://github.com/gilbertorconde/midea-ac) custom integration (a fork of [mill1000/midea-ac-py](https://github.com/mill1000/midea-ac-py) with extended features), which controls Midea (and associated brands — Carrier, Toshiba, Samsung, LG, Electrolux, and many more) air conditioners via LAN. Install it via HACS or manually before using this card.
 
 Key features at a glance:
 
@@ -290,7 +290,7 @@ The self-clean button appears as a small pill in the card header. It:
 ## Requirements
 
 - Home Assistant 2023.4 or newer (modern Web Component support)
-- The [**Midea Smart AC**](https://github.com/mill1000/midea-ac-py) custom integration installed and at least one `climate.*` entity configured
+- The [**Midea Smart AC**](https://github.com/gilbertorconde/midea-ac) custom integration installed and at least one `climate.*` entity configured
   - Install via HACS (search for "Midea Smart AC") or manually by copying `custom_components/midea_ac` into your HA config directory
-  - Supports Midea OEM brands: Carrier, Toshiba, Samsung, LG, Electrolux, Friedrich, Pioneer, Mr. Cool, and [many more](https://github.com/mill1000/midea-ac-py#readme)
+  - Supports Midea OEM brands: Carrier, Toshiba, Samsung, LG, Electrolux, Friedrich, Pioneer, Mr. Cool, and [many more](https://github.com/gilbertorconde/midea-ac#readme)
 - No additional HACS **frontend** cards required
