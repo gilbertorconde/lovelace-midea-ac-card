@@ -1920,14 +1920,16 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
           this._call('select', 'select_option', { entity_id: cfg.rate_select, option: val });
         break;
 
-      // ── Timer sheet ───────────────────────────────────────────────────────
+      // ── Timer sheet (mirror the mode sheet: set value, then close) ──────────
       case 'set-on-timer':
         if (cfg.power_on_timer)
           this._call('number', 'set_value', { entity_id: cfg.power_on_timer, value: +val });
+        this._closeSheet();
         break;
       case 'set-off-timer':
         if (cfg.power_off_timer)
           this._call('number', 'set_value', { entity_id: cfg.power_off_timer, value: +val });
+        this._closeSheet();
         break;
 
       // ── Feature rows ──────────────────────────────────────────────────────
