@@ -1,5 +1,5 @@
 // =============================================================================
-// Midea AC Control Card  v2.1.0
+// Midea AC Control Card  v2.2.0
 // Inspired by the official Midea app UI.
 //
 // Install via HACS (search "Midea AC Card") or manually:
@@ -47,6 +47,24 @@
 //   smart_eye:           switch.living_room_ac_smart_eye            # auto-derived
 //   reset_filter:           button.living_room_ac_reset_filter            # auto-derived
 //   reset_fresh_air_filter: button.living_room_ac_reset_fresh_air_filter  # auto-derived
+//
+// Alerts & diagnostics (enable the integration's diagnostic entities to reveal
+// the water-tank badge and the Diagnostics tile; all auto-derived):
+//   water_full:                  binary_sensor.living_room_ac_water_tank_full
+//   outdoor_unit_power:          sensor.living_room_ac_outdoor_unit_power
+//   compressor_frequency:        sensor.living_room_ac_compressor_frequency
+//   target_compressor_frequency: sensor.living_room_ac_target_compressor_frequency
+//   compressor_current:          sensor.living_room_ac_compressor_current
+//   compressor_voltage:          sensor.living_room_ac_compressor_voltage
+//   indoor_coil_temp:            sensor.living_room_ac_indoor_coil_temperature
+//   outdoor_coil_temp:           sensor.living_room_ac_outdoor_coil_temperature
+//   discharge_pipe_temp:         sensor.living_room_ac_discharge_pipe_temperature
+//   outdoor_fan_speed:           sensor.living_room_ac_outdoor_fan_speed
+//   indoor_fan_speed:            sensor.living_room_ac_indoor_fan_speed
+//   target_indoor_fan_speed:     sensor.living_room_ac_target_indoor_fan_speed
+//   water_pump:                  binary_sensor.living_room_ac_water_pump
+//   louvers_h_angle:             sensor.living_room_ac_horizontal_louvers_angle
+//   louvers_v_angle:             sensor.living_room_ac_vertical_louvers_angle
 // =============================================================================
 
 const CARD_TAG = 'midea-ac-card';
@@ -344,6 +362,32 @@ const EXTRAS_TOGGLE_META = {
   smart_eye:         { icon: '👁', name: 'Smart Eye',         desc: 'Occupancy / body sensing' },
 };
 
+// Diagnostic sensors (group 1/2/7/11 data). All disabled-by-default in the
+// integration; the Diagnostics tile appears only when at least one is enabled.
+const DIAG_SECTIONS = [
+  { title: 'Outdoor Unit', rows: [
+    { key: 'outdoor_unit_power',          name: 'Power draw' },
+    { key: 'compressor_frequency',        name: 'Compressor frequency' },
+    { key: 'target_compressor_frequency', name: 'Compressor target' },
+    { key: 'compressor_current',          name: 'Compressor current' },
+    { key: 'compressor_voltage',          name: 'Compressor voltage' },
+    { key: 'outdoor_coil_temp',           name: 'Coil temperature' },
+    { key: 'discharge_pipe_temp',         name: 'Discharge pipe' },
+    { key: 'outdoor_fan_speed',           name: 'Fan speed' },
+  ]},
+  { title: 'Indoor Unit', rows: [
+    { key: 'indoor_coil_temp',        name: 'Coil temperature' },
+    { key: 'indoor_fan_speed',        name: 'Fan speed' },
+    { key: 'target_indoor_fan_speed', name: 'Fan target' },
+    { key: 'water_pump',              name: 'Water pump' },
+  ]},
+  { title: 'Louvers', rows: [
+    { key: 'louvers_h_angle', name: 'Horizontal angle' },
+    { key: 'louvers_v_angle', name: 'Vertical angle' },
+  ]},
+];
+const DIAG_KEYS = DIAG_SECTIONS.flatMap(s => s.rows.map(r => r.key));
+
 /**
  * Given a user config object, fills in any missing optional entity IDs by
  * deriving them from the climate entity name using the Midea AC LAN
@@ -393,6 +437,23 @@ function deriveEntities(cfg) {
     smart_eye:           `switch.${n}_smart_eye`,
     reset_filter:           `button.${n}_reset_filter`,
     reset_fresh_air_filter: `button.${n}_reset_fresh_air_filter`,
+    // Alerts
+    water_full:             `binary_sensor.${n}_water_tank_full`,
+    // Diagnostic sensors (groups 1/2/7/11; disabled-by-default in the integration)
+    outdoor_unit_power:          `sensor.${n}_outdoor_unit_power`,
+    compressor_frequency:        `sensor.${n}_compressor_frequency`,
+    target_compressor_frequency: `sensor.${n}_target_compressor_frequency`,
+    compressor_current:          `sensor.${n}_compressor_current`,
+    compressor_voltage:          `sensor.${n}_compressor_voltage`,
+    indoor_coil_temp:            `sensor.${n}_indoor_coil_temperature`,
+    outdoor_coil_temp:           `sensor.${n}_outdoor_coil_temperature`,
+    discharge_pipe_temp:         `sensor.${n}_discharge_pipe_temperature`,
+    outdoor_fan_speed:           `sensor.${n}_outdoor_fan_speed`,
+    indoor_fan_speed:            `sensor.${n}_indoor_fan_speed`,
+    target_indoor_fan_speed:     `sensor.${n}_target_indoor_fan_speed`,
+    water_pump:                  `binary_sensor.${n}_water_pump`,
+    louvers_h_angle:             `sensor.${n}_horizontal_louvers_angle`,
+    louvers_v_angle:             `sensor.${n}_vertical_louvers_angle`,
   };
 
   const resolved = { ...cfg };
@@ -457,6 +518,7 @@ class AcCard extends HTMLElement {
       cfg.night_light, cfg.pmv, cfg.power_save, cfg.low_frequency_fan,
       cfg.ventilation, cfg.anti_cold, cfg.diy, cfg.smart_eye,
       cfg.reset_filter, cfg.reset_fresh_air_filter,
+      cfg.water_full, ...DIAG_KEYS.map(k => cfg[k]),
     ].filter(Boolean);
 
     // Skip re-render if nothing relevant changed, or while user is dragging the arc
@@ -577,6 +639,40 @@ class AcCard extends HTMLElement {
 @keyframes filter-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: .5; }
+}
+/* ── Water tank full badge ── */
+.water-full-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid #2196f3;
+  background: rgba(33, 150, 243, 0.12);
+  cursor: default;
+  color: #2196f3;
+  padding: 0;
+  flex-shrink: 0;
+  animation: filter-pulse 2s ease-in-out infinite;
+}
+/* ── Diagnostics sheet rows ── */
+.diag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--divider-color, rgba(0,0,0,.06));
+}
+.diag-row:last-child { border-bottom: none; }
+.diag-lbl {
+  font-size: 13px;
+  color: var(--secondary-text-color);
+}
+.diag-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-text-color);
+  font-variant-numeric: tabular-nums;
 }
 .chip {
   display: flex;
@@ -1045,9 +1141,13 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     const outdoorEid = cfg.outdoor_temp;
     const outdoorRaw = outdoorEid && hass.states[outdoorEid]?.state;
     const outdoorT   = outdoorRaw && !isNaN(+outdoorRaw) ? (+outdoorRaw).toFixed(1) : null;
-    // Power is only shown when the sensor exists and reports a finite number,
-    // so ACs that don't expose power simply omit the reading.
-    const powerEnt   = cfg.power ? hass.states[cfg.power] : null;
+    // Power is only shown when a sensor exists and reports a finite number,
+    // so ACs that don't expose power simply omit the reading. The group 4
+    // energy sensor is preferred; group 7 outdoor unit power is the fallback.
+    const powerMain  = cfg.power ? hass.states[cfg.power] : null;
+    const powerEnt   = (!isUnavail(powerMain) && isFinite(+powerMain?.state))
+      ? powerMain
+      : (cfg.outdoor_unit_power ? hass.states[cfg.outdoor_unit_power] : null);
     const powerNum   = (!isUnavail(powerEnt) && powerEnt && isFinite(+powerEnt.state)) ? +powerEnt.state : null;
     const powerUnit  = powerEnt?.attributes?.unit_of_measurement || 'W';
     const powerDisp  = powerNum == null
@@ -1098,6 +1198,16 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     const filterAlertEnt = cfg.filter_alert ? hass.states[cfg.filter_alert] : null;
     const filterAlertOn  = filterAlertEnt?.state === 'on';
 
+    // ── Water tank full alert ──────────────────────────────────────────────────
+    const waterFullEnt = cfg.water_full ? hass.states[cfg.water_full] : null;
+    const waterFullOn  = waterFullEnt?.state === 'on';
+
+    // ── Diagnostics ────────────────────────────────────────────────────────────
+    const diagPresent = DIAG_KEYS.some(k => this._present(k));
+    const diagSummary = [this._fmtSensor('outdoor_unit_power'),
+                         this._fmtSensor('compressor_frequency')]
+      .filter(Boolean).join(' · ') || 'View';
+
     // ── Timers (two independent tiles: power-on / power-off) ───────────────────
     const onTimerEnt   = cfg.power_on_timer  ? hass.states[cfg.power_on_timer]  : null;
     const offTimerEnt  = cfg.power_off_timer ? hass.states[cfg.power_off_timer] : null;
@@ -1128,6 +1238,12 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       <span class="filter-alert-btn" title="Filter needs cleaning">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
           <path fill="currentColor" d="M13 13v6.59L15.59 22H8.41L11 19.59V13l-9-9V2h20v2z"/>
+        </svg>
+      </span>` : ''}
+      ${waterFullOn ? `
+      <span class="water-full-btn" title="Water tank full — empty the tank">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M12 2c-5.33 8-8 11.27-8 14a8 8 0 0 0 16 0c0-2.73-2.67-6-8-14m0 20a6 6 0 0 1-6-6c0-1.77 1.66-4.26 6-10.48c4.34 6.22 6 8.71 6 10.48a6 6 0 0 1-6 6"/>
         </svg>
       </span>` : ''}
       ${!selfCleanHide ? `
@@ -1226,6 +1342,14 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       <div class="tile-row">
         <span class="tile-val">${extrasSummary}</span>
         <span class="tile-icon">✨</span>
+      </div>
+    </div>`}
+    ${!diagPresent ? '' : `
+    <div class="tile tile-wide" data-action="open-diag">
+      <span class="tile-lbl">Diagnostics</span>
+      <div class="tile-row">
+        <span class="tile-val">${diagSummary}</span>
+        <span class="tile-icon">📈</span>
       </div>
     </div>`}
   </div>
@@ -1332,6 +1456,14 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     <div class="sheet-handle"></div>
     <div class="sheet-title">Comfort &amp; Extras</div>
     ${this._extrasSheetHtml(acOff)}
+  </div>`}
+
+  ${!diagPresent ? '' : `
+  <!-- ── Diagnostics sheet ── -->
+  <div class="sheet" data-sheet="diag">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Diagnostics</div>
+    ${this._diagSheetHtml()}
   </div>`}
 
 </div>`;
@@ -1640,6 +1772,40 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     return sections.join('') || '<p class="no-items">No extra features available.</p>';
   }
 
+  /**
+   * Format a diagnostic entity's state for display: numbers keep one decimal
+   * at most and append the entity's unit; binary sensors map to Running/Off.
+   * Returns null when the entity is absent or unavailable.
+   */
+  _fmtSensor(key) {
+    const ent = this._entity(key);
+    if (!ent || isUnavail(ent)) return null;
+    if (ent.state === 'on')  return 'Running';
+    if (ent.state === 'off') return 'Off';
+    const v = +ent.state;
+    if (isNaN(v)) return ent.state;
+    const unit = ent.attributes?.unit_of_measurement;
+    const disp = Number.isInteger(v) ? v : +v.toFixed(1);
+    return unit ? `${disp} ${unit}` : `${disp}`;
+  }
+
+  _diagSheetHtml() {
+    const sections = [];
+    for (const sec of DIAG_SECTIONS) {
+      const rows = sec.rows
+        .filter(r => this._present(r.key))
+        .map(r => `
+        <div class="diag-row">
+          <span class="diag-lbl">${r.name}</span>
+          <span class="diag-val">${this._fmtSensor(r.key) ?? '—'}</span>
+        </div>`)
+        .join('');
+      if (rows) sections.push(`<div class="sheet-sec">${sec.title}</div><div class="diag-grid">${rows}</div>`);
+    }
+    return sections.join('') ||
+      '<p class="no-items">Enable the integration&#39;s diagnostic sensors to see live data here.</p>';
+  }
+
   // ── Dial drag ────────────────────────────────────────────────────────────
 
   _bindDialEvents(svg) {
@@ -1810,6 +1976,7 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       case 'open-timer-on':  this._openSheet('timer-on');  return;
       case 'open-timer-off': this._openSheet('timer-off'); return;
       case 'open-extras':    this._openSheet('extras');    return;
+      case 'open-diag':      this._openSheet('diag');      return;
 
       // ── Temperature ──────────────────────────────────────────────────────
       case 'temp-up':
