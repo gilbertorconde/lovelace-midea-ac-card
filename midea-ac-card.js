@@ -1,5 +1,5 @@
 // =============================================================================
-// Midea AC Control Card  v2.2.0
+// Midea AC Control Card  v2.3.0
 // Inspired by the official Midea app UI.
 //
 // Install via HACS (search "Midea AC Card") or manually:
@@ -50,6 +50,10 @@
 //
 // Alerts & diagnostics (enable the integration's diagnostic entities to reveal
 // the water-tank badge and the Diagnostics tile; all auto-derived):
+//   flash:                       switch.living_room_ac_flash
+//   cool_wind:                   binary_sensor.living_room_ac_cool_wind
+//   natural_wind:                binary_sensor.living_room_ac_natural_wind
+//   child_sleep:                 binary_sensor.living_room_ac_child_sleep
 //   water_full:                  binary_sensor.living_room_ac_water_tank_full
 //   outdoor_unit_power:          sensor.living_room_ac_outdoor_unit_power
 //   compressor_frequency:        sensor.living_room_ac_compressor_frequency
@@ -437,6 +441,12 @@ function deriveEntities(cfg) {
     smart_eye:           `switch.${n}_smart_eye`,
     reset_filter:           `button.${n}_reset_filter`,
     reset_fresh_air_filter: `button.${n}_reset_fresh_air_filter`,
+    // Flash (rapid cool/heat, formerly "jet cool")
+    flash:                  `switch.${n}_flash`,
+    // Read-only status binary sensors
+    cool_wind:              `binary_sensor.${n}_cool_wind`,
+    natural_wind:           `binary_sensor.${n}_natural_wind`,
+    child_sleep:            `binary_sensor.${n}_child_sleep`,
     // Alerts
     water_full:             `binary_sensor.${n}_water_tank_full`,
     // Diagnostic sensors (groups 1/2/7/11; disabled-by-default in the integration)
@@ -518,6 +528,7 @@ class AcCard extends HTMLElement {
       cfg.night_light, cfg.pmv, cfg.power_save, cfg.low_frequency_fan,
       cfg.ventilation, cfg.anti_cold, cfg.diy, cfg.smart_eye,
       cfg.reset_filter, cfg.reset_fresh_air_filter,
+      cfg.flash, cfg.cool_wind, cfg.natural_wind, cfg.child_sleep,
       cfg.water_full, ...DIAG_KEYS.map(k => cfg[k]),
     ].filter(Boolean);
 
@@ -654,6 +665,29 @@ class AcCard extends HTMLElement {
   padding: 0;
   flex-shrink: 0;
   animation: filter-pulse 2s ease-in-out infinite;
+}
+/* ── Status chips (read-only active modes) ── */
+.status-chips {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+.status-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--secondary-text-color);
+  background: var(--secondary-background-color, rgba(0,0,0,.05));
+  border-radius: 10px;
+  padding: 3px 9px;
+}
+/* ── Actual louver position note (Airflow sheet) ── */
+.louver-actual {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--secondary-text-color);
+  text-align: center;
 }
 /* ── Diagnostics sheet rows ── */
 .diag-row {
@@ -1184,10 +1218,24 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     const breezeTileHtml = breezeTileIcons(isCool, breezeAwayOn, breezelessOn, preset, hasBreeze);
     const displayEnt  = cfg.display   ? hass.states[cfg.display]   : null;
     const purifierEnt = cfg.purifier  ? hass.states[cfg.purifier]  : null;
+    const flashEnt    = cfg.flash     ? hass.states[cfg.flash]     : null;
     const displayUnavail  = isUnavail(displayEnt);
     const purifierUnavail = isUnavail(purifierEnt);
+    const flashUnavail    = isUnavail(flashEnt);
     const displayOn  = !displayUnavail  && displayEnt?.state  === 'on';
     const purifierOn = !purifierUnavail && purifierEnt?.state === 'on';
+    const flashOn    = !flashUnavail    && flashEnt?.state    === 'on';
+
+    // ── Read-only status chips (shown only while active) ───────────────────────
+    const STATUS_CHIPS = [
+      ['cool_wind',    '❄',  'Cool wind'],
+      ['natural_wind', '🍃', 'Natural wind'],
+      ['child_sleep',  '🌙', 'Child sleep'],
+    ];
+    const statusChips = STATUS_CHIPS
+      .filter(([k]) => this._entity(k)?.state === 'on')
+      .map(([, icon, lbl]) => `<span class="status-chip">${icon} ${lbl}</span>`)
+      .join('');
 
     // ── Self-clean ────────────────────────────────────────────────────────────
     const selfCleanEnt  = cfg.self_clean_sensor ? hass.states[cfg.self_clean_sensor] : null;
@@ -1287,6 +1335,8 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     ${humidity != null ? `<span class="stat"><span class="stat-icon">💧</span>${humidity}%</span>` : ''}
     ${powerDisp != null ? `<span class="stat"><span class="stat-icon">⚡</span>${powerDisp}</span>` : ''}
   </div>
+
+  ${statusChips ? `<div class="status-chips">${statusChips}</div>` : ''}
 
   <div class="sep"></div>
 
@@ -1389,6 +1439,17 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       <button class="tog${purifierOn ? ' on' : ''}"
               data-action="toggle-switch" data-entity="${cfg.purifier}"
               ${purifierUnavail ? 'disabled' : ''}></button>
+    </div>` : ''}
+    ${this._present('flash') ? `
+    <div class="feature${flashUnavail ? ' unavail' : ''}">
+      <div class="feature-ico">🚀</div>
+      <div class="feature-info">
+        <div class="feature-name">Flash</div>
+        <div class="feature-desc">${flashUnavail ? 'Unavailable — turn on AC first' : 'Rapid cool / heat boost'}</div>
+      </div>
+      <button class="tog${flashOn ? ' on' : ''}"
+              data-action="toggle-switch" data-entity="${cfg.flash}"
+              ${flashUnavail ? 'disabled' : ''}></button>
     </div>` : ''}
   </div>
 
@@ -1567,6 +1628,12 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       ${canSwingH ? `<button class="osc-pill${hOsc ? ' active' : ''}" data-action="toggle-osc-h">${autoSwingHSvg(hOsc ? mc : '#888')} Left and Right</button>` : ''}
     </div>` : '';
 
+    // Actual louver angles reported by the unit (group 11 diagnostic sensors)
+    const hNow = this._fmtSensor('louvers_h_angle');
+    const vNow = this._fmtSensor('louvers_v_angle');
+    const actualLine = (hNow || vNow) ? `
+    <p class="louver-actual">Actual position:${hNow ? ` &nbsp;↔ ${hNow}` : ''}${vNow ? ` &nbsp;↕ ${vNow}` : ''}</p>` : '';
+
     return `${oscPills}
     <div class="sheet-sec">Custom Direction</div>
     <div class="louver-axis-lbl">Horizontal ↔</div>
@@ -1576,7 +1643,8 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     <div class="louver-axis-lbl" style="margin-top:14px">Vertical ↕</div>
     ${vEid
       ? makeRow(LOUVER_V, vIdx, vOsc, vUnavail, 'set-v-angle', 'set-v-off')
-      : '<p class="no-items">Configure <code>swing_v_angle</code> to enable.</p>'}`;
+      : '<p class="no-items">Configure <code>swing_v_angle</code> to enable.</p>'}
+    ${actualLine}`;
   }
 
   _breezeSheetHtml(attrs, mc, mode) {
