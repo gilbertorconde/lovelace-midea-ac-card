@@ -1,6 +1,6 @@
 // =============================================================================
-// Midea AC Control Card  v2.3.0
-// Inspired by the official Midea app UI.
+// Midea AC Control Card  v3.0.0
+// Dark "Home" design: dial, mode, fan, airflow and comfort controls on one page.
 //
 // Install via HACS (search "Midea AC Card") or manually:
 //   Place this file in:  /config/www/lovelace-midea-ac-card/midea-ac-card.js
@@ -75,12 +75,12 @@ const CARD_TAG = 'midea-ac-card';
 
 // ── Mode accent colours ───────────────────────────────────────────────────────
 const MODE_COLORS = {
-  cool:     '#00a0e9',
-  heat:     '#ff8c00',
-  dry:      '#00bcd4',
-  fan_only: '#43a047',
-  auto:     '#7b1fa2',
-  off:      '#757575',
+  cool:     '#3fa9ff',
+  heat:     '#ff7a45',
+  dry:      '#f5c542',
+  fan_only: '#34d1a6',
+  auto:     '#a78bfa',
+  off:      '#8b93a3',
 };
 
 const MODE_ICONS = {
@@ -196,123 +196,14 @@ function arcD(cx, cy, r, startDeg, sweepDeg) {
  */
 function louverSvg(data, activeIdx, color, size = 44) {
   const paths = data.paths.map((d, i) => {
-    const stroke = i === activeIdx ? color : '#888';
+    const stroke = i === activeIdx ? color : 'rgba(255,255,255,.3)';
     const sw     = i === activeIdx ? '2'   : '1.5';
     return `<path d="${d}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" fill="none"/>`;
   }).join('');
   return `<svg viewBox="0 0 30 30" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-  <circle ${data.circleAttrs} fill="#252525" stroke="#252525" stroke-width="2"/>
-  <rect ${data.rectAttrs} fill="none" stroke="#888" stroke-width="1" stroke-linecap="square"/>
+  <rect ${data.rectAttrs} fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1" stroke-linecap="square"/>
   ${paths}
 </svg>`;
-}
-
-/**
- * Inline SVG for the horizontal auto-swing (left ↔ right) pill icon.
- * Paths extracted from horizontal_auto_swinger.svg.
- * Unique marker ID "h-osc-mk" avoids collision with the vertical variant.
- */
-function autoSwingHSvg(color, size = 26) {
-  return `<svg viewBox="0 0 30 30" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-  <defs>
-    <marker id="h-osc-mk" overflow="visible" markerHeight="1" markerWidth="1"
-            orient="auto-start-reverse" preserveAspectRatio="xMidYMid" viewBox="0 0 1 1">
-      <path transform="rotate(180 .125 0)" d="m3-3-3 3 3 3" fill="none"
-            stroke="context-stroke" stroke-linecap="round"/>
-    </marker>
-  </defs>
-  <g fill="none" stroke="${color}" stroke-linecap="round" stroke-linejoin="round">
-    <path d="m5.5625 19.844c5.4296 3.8131 11.297 5.6902 18.875 0"
-          marker-start="url(#h-osc-mk)" marker-end="url(#h-osc-mk)"/>
-    <path d="m15.977 4.6807 7.2969 12.639"/>
-    <path d="m14.023 4.6807-7.2969 12.639"/>
-  </g>
-</svg>`;
-}
-
-/**
- * Inline SVG for the vertical auto-swing (up ↕ down) pill icon.
- * Paths extracted from vertical_auto_swinger.svg.
- * Unique marker ID "v-osc-mk" avoids collision with the horizontal variant.
- */
-function autoSwingVSvg(color, size = 26) {
-  return `<svg viewBox="0 0 30 30" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-  <defs>
-    <marker id="v-osc-mk" overflow="visible" markerHeight="1" markerWidth="1"
-            orient="auto-start-reverse" preserveAspectRatio="xMidYMid" viewBox="0 0 1 1">
-      <path transform="rotate(180 .125 0)" d="m3-3-3 3 3 3" fill="none"
-            stroke="context-stroke" stroke-linecap="round"/>
-    </marker>
-  </defs>
-  <g fill="none" stroke="${color}" stroke-linecap="round" stroke-linejoin="round">
-    <path d="m10.156 5.5625c-3.8131 5.4296-5.6902 11.297 0 18.875"
-          marker-start="url(#v-osc-mk)" marker-end="url(#v-osc-mk)"/>
-    <path d="m25.319 15.977-12.639 7.2969"/>
-    <path d="m25.319 14.023-12.639-7.2969"/>
-  </g>
-</svg>`;
-}
-
-// Position string → 0-based index for louverSvg() (-1 = none / off)
-const POS_IDX = { off: -1, pos_1: 0, pos_2: 1, pos_3: 2, pos_4: 3, pos_5: 4 };
-
-/**
- * Returns the <span class="tile-val"> HTML for the Airflow tile.
- * Shows auto-swing SVG icons when oscillating, louver-position SVGs when a
- * fixed angle is selected, and plain '—' when nothing is active.
- */
-function airTileIcon(swingMode, hPos, vPos, mc) {
-  const hOsc = swingMode === 'horizontal' || swingMode === 'both';
-  const vOsc = swingMode === 'vertical'   || swingMode === 'both';
-
-  let inner;
-  if (hOsc && vOsc) {
-    inner = autoSwingHSvg(mc, 28) + autoSwingVSvg(mc, 28);
-  } else if (hOsc) {
-    inner = autoSwingHSvg(mc, 34);
-  } else if (vOsc) {
-    inner = autoSwingVSvg(mc, 34);
-  } else if (hPos !== 'off' && vPos !== 'off') {
-    inner = louverSvg(LOUVER_H, POS_IDX[hPos] ?? -1, mc, 30) +
-            louverSvg(LOUVER_V, POS_IDX[vPos] ?? -1, mc, 30);
-  } else if (hPos !== 'off') {
-    inner = louverSvg(LOUVER_H, POS_IDX[hPos] ?? -1, mc, 34);
-  } else if (vPos !== 'off') {
-    inner = louverSvg(LOUVER_V, POS_IDX[vPos] ?? -1, mc, 34);
-  } else {
-    return `<span class="tile-val">—</span>`;
-  }
-  return `<span class="tile-val" style="display:flex;align-items:center;gap:3px">${inner}</span>`;
-}
-
-/**
- * Returns the <span class="tile-val"> HTML for the Breeze & Presets tile.
- * Shows the active breeze-mode icon (always in cool mode) and the active
- * preset icon side by side.
- */
-function breezeTileIcons(isCool, breezeAwayOn, breezelessOn, preset, hasBreeze) {
-  const parts = [];
-
-  // Always show the current breeze state when entities are configured.
-  // Falls back to "normal" when not in cool mode or no special mode is active.
-  if (hasBreeze) {
-    if (isCool && breezeAwayOn)      parts.push(iconSvg('breeze_away',   22));
-    else if (isCool && breezelessOn) parts.push(iconSvg('breeze_less',   22));
-    else                             parts.push(iconSvg('breeze_normal', 22));
-  }
-
-  // Active preset icon (sleep / boost / away — eco has no icon, skip)
-  const presetKey = `preset_${preset}`;
-  if (preset && preset !== 'none' && ICON_DEFS[presetKey]) {
-    parts.push(iconSvg(presetKey, 20));
-  }
-
-  if (parts.length === 0) return `<span class="tile-val">—</span>`;
-  return `<span class="tile-val" style="display:flex;align-items:center;gap:4px">${parts.join('')}</span>`;
-}
-function hexA(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 }
 
 /** True when an entity state means it cannot be interacted with */
@@ -473,37 +364,78 @@ function deriveEntities(cfg) {
   return resolved;
 }
 
+
+const VERSION = '3.0.0';
+
+// Dial geometry (viewBox 260×206): a 270° arc open at the bottom.
+const DIAL = { CX: 130, CY: 118, R: 96, START: 225, SWEEP: 270, W: 260, H: 206, TICKS: 40 };
+
+const ACTION_LABELS = {
+  heating: 'Heating', cooling: 'Cooling', drying: 'Drying', fan: 'Fan only',
+  idle: 'Idle', off: 'Off', defrosting: 'Defrosting', preheating: 'Preheating',
+};
+
+const MODE_ORDER = ['cool', 'heat', 'dry', 'fan_only', 'auto'];
+const MODE_VERBS = { cool: 'Cooling', heat: 'Heating', dry: 'Drying', fan_only: 'Fan only', auto: 'Auto' };
+// hvac_modes in a natural order (unknown modes last), without 'off'.
+function orderedModes(attrs) {
+  const modes = (attrs.hvac_modes || MODE_ORDER).filter(m => m !== 'off');
+  const rank = m => { const i = MODE_ORDER.indexOf(m); return i < 0 ? 99 : i; };
+  return [...modes].sort((a, b) => rank(a) - rank(b));
+}
+
+const QUICK_DESC = {
+  heat: 'warm up', cool: 'cool down', dry: 'dehumidify', fan_only: 'air only', auto: 'hold target',
+};
+
+const EXTRAS_ICONS = {
+  fresh_air: 'mdi:weather-windy', comfort_sleep: 'mdi:sleep', night_light: 'mdi:lightbulb-night-outline',
+  pmv: 'mdi:thermometer-check', power_save: 'mdi:battery-heart-outline',
+  low_frequency_fan: 'mdi:fan-chevron-down', ventilation: 'mdi:hvac', anti_cold: 'mdi:snowflake-off',
+  diy: 'mdi:tune-variant', smart_eye: 'mdi:eye-outline',
+};
+
+const STATUS_CHIPS = [
+  ['cool_wind',    'mdi:snowflake-thermometer', 'Cool wind'],
+  ['natural_wind', 'mdi:leaf',                  'Natural wind'],
+  ['child_sleep',  'mdi:baby-face-outline',     'Child sleep'],
+];
+
+const FONT_URL = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap';
+function loadFont() {
+  if ([...document.head.querySelectorAll('link')].some(l => l.href === FONT_URL)) return;
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = FONT_URL;
+  document.head.appendChild(l);
+}
+
+const fmtT = v => (Math.round(v * 10) / 10).toFixed(1);
+const ico = (name) => `<ha-icon icon="${name}"></ha-icon>`;
+
 // ── Card class ────────────────────────────────────────────────────────────────
 class AcCard extends HTMLElement {
   constructor() {
     super();
-    this._hass      = null;
-    this._config    = null;
-    this._sheet     = null;   // currently-open sheet name
-    this._built     = false;  // shadow DOM initialised
-    this._fanTimer  = null;   // debounce timer for fan slider
-    this._dragging  = false;  // true while user is dragging the arc
-    this._dragTemp  = null;   // live temperature value during drag
+    this._hass     = null;
+    this._config   = null;
+    this._built    = false;
+    this._dragging = false;   // dial or fan bars are being dragged: hold re-renders
+    this._dragTemp = null;
+    this._fanTimer = null;
+    this._open     = new Set();  // keys of expanded <details> sections
+    this._uid      = Math.random().toString(36).slice(2, 8);
   }
 
-  static getStubConfig() {
-    return { entity: 'climate.living_room_ac' };
-  }
+  static getStubConfig() { return { entity: 'climate.living_room_ac' }; }
+  getCardSize() { return 9; }
+  getGridOptions() { return { columns: 'full', min_columns: 6 }; }
 
-  getCardSize() { return 8; }
-
-  // Returns the hass state object for a configured entity key, or null when the
-  // key isn't configured or the entity doesn't exist in hass.
   _entity(key) {
     const id = this._config?.[key];
     return id && this._hass ? (this._hass.states[id] || null) : null;
   }
-
-  // True when the configured entity for `key` exists in hass (any value).
-  // Used to progressively reveal controls only for entities the user enabled.
-  _present(key) {
-    return !!this._entity(key);
-  }
+  _present(key) { return !!this._entity(key); }
 
   setConfig(cfg) {
     if (!cfg.entity) throw new Error('midea-ac-card: entity is required');
@@ -514,1330 +446,570 @@ class AcCard extends HTMLElement {
     if (!this._config) return;
     const prev = this._hass;
     this._hass = hass;
-
-    // Collect all entity IDs this card cares about
     const cfg = this._config;
-    const ids = [
-      cfg.entity, cfg.indoor_temp, cfg.outdoor_temp, cfg.power, cfg.fan_speed,
-      cfg.display, cfg.breeze_away, cfg.breezeless, cfg.purifier,
-      cfg.swing_h_angle, cfg.swing_v_angle, cfg.rate_select,
-      cfg.self_clean_sensor, cfg.filter_alert,
-      cfg.power_on_timer, cfg.power_off_timer,
-      // Extended comfort features (disabled-by-default entities)
-      cfg.fresh_air, cfg.fresh_air_fan_speed, cfg.comfort_sleep, cfg.cosy_sleep_mode,
-      cfg.night_light, cfg.pmv, cfg.power_save, cfg.low_frequency_fan,
-      cfg.ventilation, cfg.anti_cold, cfg.diy, cfg.smart_eye,
-      cfg.reset_filter, cfg.reset_fresh_air_filter,
-      cfg.flash, cfg.cool_wind, cfg.natural_wind, cfg.child_sleep,
-      cfg.water_full, ...DIAG_KEYS.map(k => cfg[k]),
-    ].filter(Boolean);
-
-    // Skip re-render if nothing relevant changed, or while user is dragging the arc
+    const ids = Object.entries(cfg)
+      .filter(([k, v]) => typeof v === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(v) && k !== 'type')
+      .map(([, v]) => v);
     if (this._dragging) return;
-    if (prev && ids.every(id => prev.states[id] === hass.states[id])) return;
-
+    if (prev && this._built && ids.every(id => prev.states[id] === hass.states[id])) return;
     if (!this._built) this._initShadow();
     this._render();
   }
 
   connectedCallback() {
-    if (this._hass && !this._built) {
-      this._initShadow();
-      this._render();
-    }
+    loadFont();
+    if (this._hass && !this._built) { this._initShadow(); this._render(); }
   }
 
   _initShadow() {
-    this.attachShadow({ mode: 'open' });
-    // Attach these once — shadowRoot persists across re-renders so adding
-    // them inside _render() would stack up a new listener on every hass update.
+    if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     this.shadowRoot.addEventListener('click', e => this._onClick(e));
     this.shadowRoot.addEventListener('input', e => this._onInput(e));
+    // <details> toggle does not bubble; capture it to remember open sections.
+    this.shadowRoot.addEventListener('toggle', e => {
+      const k = e.target?.dataset?.k;
+      if (!k) return;
+      if (e.target.open) this._open.add(k); else this._open.delete(k);
+    }, true);
     this._built = true;
   }
 
-  // ── Full re-render ──────────────────────────────────────────────────────────
   _render() {
     if (!this._hass || !this._built) return;
-    const activeSheet = this._sheet;
     this.shadowRoot.innerHTML = `<style>${this._css()}</style>${this._html()}`;
-    // Dial SVG is recreated by innerHTML each time, so bind its events here.
-    const dialSvg = this.shadowRoot.querySelector('.dial-svg');
-    if (dialSvg) this._bindDialEvents(dialSvg);
-    if (activeSheet) this._openSheet(activeSheet);
+    const dial = this.shadowRoot.querySelector('.dial-svg');
+    if (dial) this._bindDialEvents(dial);
+    const bars = this.shadowRoot.querySelector('.bars[data-drag]');
+    if (bars) this._bindFanEvents(bars);
   }
 
   // ── CSS ─────────────────────────────────────────────────────────────────────
   _css() {
     return `
-:host { display: block; }
-:host::before, :host::after { display: none !important; }
-* { box-sizing: border-box; margin: 0; padding: 0; }
+:host {
+  --bg: #0b0d12; --bg2: #11141b; --surface: #161a22; --surface2: #1d222c; --line: rgba(255,255,255,.07);
+  --text: #f2f3f5; --text2: #a9afbb; --text3: #737b8c;
+  --heat: #ff7a45; --cool: #3fa9ff; --dry: #f5c542; --fan: #34d1a6; --auto: #a78bfa; --ok: #4ade80; --danger: #ff5c6c; --amber: #ffb347;
+  display: block; container-type: inline-size; color: var(--text);
+  font-family: Inter, Figtree, Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; }
+ha-icon { --mdc-icon-size: 1em; display: inline-flex; }
+.card { background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012)), var(--bg2);
+  border: 1px solid var(--line); border-radius: 26px; overflow: hidden; }
+.label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); font-weight: 600; }
 
-.card {
-  /* background-color (not shorthand) prevents --ha-card-background gradients from themes */
-  background-color: var(--card-background-color, var(--ha-card-background-color, var(--ha-card-background, white)));
-  border-radius: var(--ha-card-border-radius, 12px);
-  box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,.12));
-  overflow: hidden;
-  position: relative;
-  color: var(--primary-text-color);
-  font-family: var(--primary-font-family, Roboto, sans-serif);
-  user-select: none;
-  -webkit-user-select: none;
-}
+/* header */
+.hd { display: flex; align-items: center; gap: 12px; padding: 18px 20px 0; }
+.hd .ic { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; flex-shrink: 0;
+  color: var(--mc); background: color-mix(in srgb, var(--mc) 15%, transparent); }
+.hd .ht { flex: 1; min-width: 0; }
+.hd h3 { margin: 0; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd p { margin: 1px 0 0; font-size: 12.5px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hr { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.iconbtn { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 19px; color: var(--text2);
+  background: rgba(255,255,255,.05); border: 1px solid var(--line); }
+.iconbtn:hover { color: var(--text); }
+.iconbtn.run { color: var(--fan); border-color: color-mix(in srgb, var(--fan) 45%, transparent); animation: pulse 1.6s ease-in-out infinite; }
+.alert { height: 30px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+  background: rgba(255,179,71,.14); color: var(--amber); }
+.alert.water { background: rgba(63,169,255,.16); color: var(--cool); }
+.power { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; background: var(--mc); color: #120a04;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--mc) 18%, transparent), 0 10px 30px -8px var(--mc); }
+.power.off { background: rgba(255,255,255,.07); color: var(--text2); box-shadow: none; border: 1px solid var(--line); }
+.status { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 20px 0; }
+.status span { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--text2);
+  display: inline-flex; gap: 5px; align-items: center; }
+@keyframes pulse { 50% { opacity: .55; } }
 
-/* ── Header ── */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px 6px;
+/* layout */
+.body { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 16px; }
+@container (min-width: 660px) {
+  .body { grid-template-columns: 320px minmax(0,1fr); gap: 22px; padding: 18px 20px 20px; }
+  .left { position: sticky; top: 0; align-self: start; }
 }
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--secondary-text-color);
-}
-/* ── Self-clean button ── */
-.self-clean-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  border: 1.5px solid var(--divider-color, #ddd);
-  background: none;
-  cursor: pointer;
-  color: var(--secondary-text-color);
-  transition: all .2s;
-  padding: 0;
-  flex-shrink: 0;
-}
-.self-clean-btn:hover {
-  border-color: var(--mode-color);
-  color: var(--mode-color);
-}
-.self-clean-btn.running {
-  border-color: #00bcd4;
-  color: #00bcd4;
-  animation: sc-pulse 1.6s ease-in-out infinite;
-}
-@keyframes sc-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: .4; }
-}
-/* ── Filter alert badge ── */
-.filter-alert-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  border: 1.5px solid #ff9800;
-  background: rgba(255, 152, 0, 0.12);
-  cursor: default;
-  color: #ff9800;
-  padding: 0;
-  flex-shrink: 0;
-  animation: filter-pulse 2s ease-in-out infinite;
-}
-@keyframes filter-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: .5; }
-}
-/* ── Water tank full badge ── */
-.water-full-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  border: 1.5px solid #2196f3;
-  background: rgba(33, 150, 243, 0.12);
-  cursor: default;
-  color: #2196f3;
-  padding: 0;
-  flex-shrink: 0;
-  animation: filter-pulse 2s ease-in-out infinite;
-}
-/* ── Status chips (read-only active modes) ── */
-.status-chips {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 16px 12px;
-}
-.status-chip {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--secondary-text-color);
-  background: var(--secondary-background-color, rgba(0,0,0,.05));
-  border-radius: 10px;
-  padding: 3px 9px;
-}
-/* ── Actual louver position note (Airflow sheet) ── */
-.louver-actual {
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--secondary-text-color);
-  text-align: center;
-}
-/* ── Diagnostics sheet rows ── */
-.diag-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 2px;
-  border-bottom: 1px solid var(--divider-color, rgba(0,0,0,.06));
-}
-.diag-row:last-child { border-bottom: none; }
-.diag-lbl {
-  font-size: 13px;
-  color: var(--secondary-text-color);
-}
-.diag-val {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--primary-text-color);
-  font-variant-numeric: tabular-nums;
-}
-.chip {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: var(--chip-bg);
-  color: var(--mode-color);
-  font-size: 12px;
-  font-weight: 600;
-}
-.chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--mode-color);
-}
+.left, .right { min-width: 0; }
+.right { display: flex; flex-direction: column; gap: 16px; }
+.blk .bh { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 2px 8px; }
+.blk .bh small { font-size: 12px; color: var(--text2); text-align: right; }
 
-/* ── Thermostat dial ── */
-.thermo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4px 0 0;
-}
-.dial-wrap {
-  position: relative;
-  width: 100%;
-  max-width: 360px;
-  padding-bottom: 77.5%; /* 155/200 aspect ratio */
-}
-.dial-svg {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  overflow: visible;
-  touch-action: none;
-  cursor: grab;
-}
+/* dial */
+.dialbox { border-radius: 24px; padding: 16px 16px 14px; border: 1px solid var(--line);
+  background: radial-gradient(260px 220px at 50% 36%, color-mix(in srgb, var(--mc) 22%, transparent), transparent 70%), var(--surface); }
+.dial { position: relative; width: 100%; max-width: 270px; margin: 0 auto; aspect-ratio: ${DIAL.W} / ${DIAL.H}; }
+.dial-svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; overflow: visible; }
 .dial-svg.dragging { cursor: grabbing; }
-.dial-center {
-  position: absolute;
-  left: 0; right: 0;
-  /* 62% places the row below the arc equator, in the wider bottom bowl */
-  top: 62%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  pointer-events: none;
-}
-.dial-btn {
-  pointer-events: all;
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  border: 2px solid var(--divider-color, #ddd);
-  /* opaque background so the button visually sits on top of the arc track */
-  background: var(--ha-card-background, var(--card-background-color, white));
-  cursor: pointer;
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1;
-  color: var(--primary-text-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color .15s;
-  flex-shrink: 0;
-}
-.dial-btn:hover { border-color: var(--mode-color); }
-.dial-btn:disabled { opacity: .35; cursor: default; pointer-events: none; }
-.dial-temp { text-align: center; pointer-events: none; flex-shrink: 0; }
-.dial-val {
-  font-size: 46px;
-  font-weight: 300;
-  line-height: 1;
-  color: var(--primary-text-color);
-}
-.dial-unit {
-  font-size: 18px;
-  vertical-align: super;
-  opacity: .65;
-}
+.dial .ctr { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 8px; pointer-events: none; }
+.dial .act { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mc); margin-bottom: 4px; }
+.dial .set { font-size: 60px; font-weight: 300; letter-spacing: -.04em; line-height: 1; }
+.dial .set sup { font-size: 20px; color: var(--text2); vertical-align: top; position: relative; top: 8px; margin-left: 2px; }
+.dial .now { font-size: 12.5px; color: var(--text2); margin-top: 6px; display: flex; gap: 5px; align-items: center; }
+.off .dial-svg { cursor: default; }
+.steps { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 4px 0; }
+.step { width: 64px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 22px;
+  background: rgba(255,255,255,.06); border: 1px solid var(--line); }
+.step:hover { background: rgba(255,255,255,.1); }
+.steps span { font-size: 12px; color: var(--text3); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.stat { border-radius: 14px; background: rgba(0,0,0,.25); padding: 9px 10px; min-width: 0; }
+.stat span { font-size: 11px; color: var(--text3); display: flex; gap: 4px; align-items: center; white-space: nowrap; }
+.stat b { display: block; font-size: 15px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
 
-/* ── Stats row ── */
-.stats {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  padding: 8px 16px 16px;
-}
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--secondary-text-color);
-}
-.stat-icon { font-size: 14px; opacity: .75; }
+/* segmented mode control */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; background: rgba(0,0,0,.28); padding: 5px; border-radius: 16px; }
+.seg button { padding: 9px 0 8px; border-radius: 12px; font-size: 12px; font-weight: 600; color: var(--text2);
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.seg button svg { width: 20px; height: 20px; }
+.seg button:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.seg button.on { background: var(--mc); color: #140a03; }
+.seg .m-cool svg { color: var(--cool); } .seg .m-heat svg { color: var(--heat); } .seg .m-dry svg { color: var(--dry); }
+.seg .m-fan_only svg { color: var(--fan); } .seg .m-auto svg { color: var(--auto); }
+.seg button.on svg { color: inherit; }
+.seg.sm button { flex-direction: row; justify-content: center; gap: 6px; padding: 8px 0; font-size: 12.5px; }
 
-/* ── Divider ── */
-.sep {
-  height: 1px;
-  background: var(--divider-color, rgba(0,0,0,.08));
-  margin: 0 16px;
-}
+/* fan bars */
+.fan { display: flex; gap: 10px; align-items: stretch; }
+.bars { flex: 1; display: flex; gap: 5px; align-items: flex-end; height: 48px; padding: 6px; border-radius: 16px; background: rgba(0,0,0,.28);
+  touch-action: none; cursor: pointer; }
+.bars span { flex: 1; border-radius: 6px; background: rgba(255,255,255,.08); transition: background .15s; }
+.bars span.on { background: linear-gradient(180deg, color-mix(in srgb, var(--mc) 85%, white), var(--mc)); }
+.bars.auto span.on { background: color-mix(in srgb, var(--mc) 35%, transparent); }
+.bars.dis { opacity: .4; cursor: default; }
 
-/* ── Tiles 2×2 ── */
-.tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 12px 16px;
-}
-.tile {
-  background: var(--secondary-background-color, rgba(0,0,0,.04));
-  border-radius: 12px;
-  padding: 12px 14px;
-  cursor: pointer;
-  border-left: 3px solid transparent;
-  transition: filter .15s;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 66px;
-}
-.tile:hover { filter: brightness(.95); }
-.tile:active { filter: brightness(.9); }
-.tile.active { border-left-color: var(--mode-color); }
-.tile-wide { grid-column: 1 / -1; }
-.tile-lbl { font-size: 12px; color: var(--secondary-text-color); font-weight: 500; }
-.tile-row { display: flex; align-items: center; justify-content: space-between; }
-.tile-val { font-size: 15px; font-weight: 600; }
-.tile-icon { font-size: 22px; opacity: .65; display: flex; align-items: center; }
+/* chips */
+.chipbtn { height: 40px; padding: 0 14px; border-radius: 14px; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--line); color: var(--text2); white-space: nowrap; }
+.chipbtn ha-icon, .chipbtn svg { font-size: 17px; flex-shrink: 0; }
+.chipbtn:hover:not(:disabled) { color: var(--text); }
+.chipbtn.on { background: color-mix(in srgb, var(--mc) 18%, transparent); border-color: color-mix(in srgb, var(--mc) 45%, transparent); color: var(--text); }
+.chipbtn.on ha-icon, .chipbtn.on svg { color: var(--mc); }
+.chipbtn:disabled { opacity: .35; }
+.fan .chipbtn { height: auto; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* ── Feature rows ── */
-.features { padding: 4px 16px 8px; }
-.feature {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--divider-color, rgba(0,0,0,.05));
-}
-.feature:last-child { border-bottom: none; }
-.feature-ico {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: var(--secondary-background-color);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-.feature-info { flex: 1; }
-.feature-name { font-size: 14px; font-weight: 500; }
-.feature-desc {
-  font-size: 12px;
-  color: var(--secondary-text-color);
-  line-height: 1.3;
-  margin-top: 2px;
-}
+/* airflow */
+.air { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@container (min-width: 900px) { .air { grid-template-columns: 1fr 1fr; } }
+@container (min-width: 480px) and (max-width: 659px) { .air { grid-template-columns: 1fr 1fr; } }
+.louver { border-radius: 16px; background: rgba(0,0,0,.28); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.louver .lh { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text2); font-weight: 600; }
+.sw { font-size: 11.5px; font-weight: 700; height: 26px; padding: 0 10px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--text3);
+  display: inline-flex; gap: 4px; align-items: center; }
+.sw.on { background: color-mix(in srgb, var(--mc) 22%, transparent); color: var(--mc); }
+.pos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.pos button { height: 36px; border-radius: 10px; background: rgba(255,255,255,.04); display: grid; place-items: center; }
+.pos button:hover:not(:disabled) { background: rgba(255,255,255,.08); }
+.pos button.on { background: color-mix(in srgb, var(--mc) 20%, transparent); outline: 1px solid color-mix(in srgb, var(--mc) 50%, transparent); }
+.louver.dim .pos { opacity: .35; }
+.note { font-size: 11.5px; color: var(--text3); margin: 0; }
 
-/* ── Toggle switch ── */
-.tog {
-  width: 44px; height: 26px;
-  border-radius: 13px;
-  background: var(--divider-color, #ccc);
-  position: relative;
-  cursor: pointer;
-  border: none;
-  transition: background .2s;
-  flex-shrink: 0;
-}
-.tog::after {
-  content: '';
-  position: absolute;
-  top: 3px; left: 3px;
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  background: white;
-  transition: transform .2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,.3);
-}
-.tog.on { background: var(--mode-color); }
-.tog.on::after { transform: translateX(18px); }
-.tog:disabled { opacity: .4; cursor: default; }
+/* toggles */
+.tg { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.tog { border-radius: 16px; padding: 12px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.tog .t1 { display: flex; justify-content: space-between; align-items: center; }
+.tog .t1 ha-icon { font-size: 20px; color: var(--text3); }
+.tog b { font-size: 13px; font-weight: 600; display: block; } .tog small { font-size: 11.5px; color: var(--text3); display: block; margin-top: 1px; }
+.tog.on .t1 ha-icon { color: var(--mc); }
+.tog:disabled { opacity: .45; }
+.sx { width: 36px; height: 21px; border-radius: 999px; background: rgba(255,255,255,.12); position: relative; flex-shrink: 0; transition: background .2s; }
+.sx::after { content: ""; position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: #cfd3db; transition: left .2s; }
+.tog.on .sx { background: var(--mc); } .tog.on .sx::after { left: 18px; background: #fff; }
 
-/* Feature row unavailable state */
-.feature.unavail { opacity: .45; }
-.feature.unavail .tog { cursor: default; }
+/* off state */
+.offhero { border-radius: 24px; background: var(--surface); border: 1px solid var(--line); padding: 22px 18px; text-align: center; }
+.offhero .big { font-size: 58px; font-weight: 300; letter-spacing: -.04em; line-height: 1; margin-top: 6px; }
+.offhero .big sup { font-size: 20px; color: var(--text2); vertical-align: top; position: relative; top: 6px; }
+.offhero p { margin: 8px 0 0; color: var(--text2); font-size: 13px; }
+.quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.qk { border-radius: 18px; padding: 13px; display: flex; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); text-align: left; }
+.qk:hover { border-color: color-mix(in srgb, var(--qc) 45%, transparent); }
+.qk .q { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; flex-shrink: 0;
+  color: var(--qc); background: color-mix(in srgb, var(--qc) 16%, transparent); }
+.qk .q svg { width: 22px; height: 22px; }
+.qk b { font-size: 14px; font-weight: 600; display: block; } .qk small { font-size: 12px; color: var(--text2); }
 
-/* ── Power button ── */
-.power-wrap {
-  display: flex;
-  justify-content: center;
-  padding: 10px 0 20px;
-}
-.power-btn {
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  border: 3px solid var(--mode-color);
-  background: none;
-  cursor: pointer;
-  color: var(--mode-color);
-  display: flex; align-items: center; justify-content: center;
-  transition: all .2s;
-  padding: 0;
-}
-.power-btn svg { display: block; pointer-events: none; }
-.power-btn.on {
-  background: var(--mode-color);
-  color: white;
-}
-.power-btn:hover { opacity: .85; }
-
-/* ── Overlay ── */
-.overlay {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,.4);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .3s;
-  z-index: 10;
-  border-radius: inherit;
-}
-.overlay.open { opacity: 1; pointer-events: all; }
-
-/* ── Bottom sheet ── */
-.sheet {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  background: var(--ha-card-background, var(--card-background-color, white));
-  border-radius: 16px 16px 0 0;
-  transform: translateY(100%);
-  transition: transform .3s ease;
-  z-index: 11;
-  padding: 8px 20px 28px;
-  box-shadow: 0 -4px 24px rgba(0,0,0,.15);
-  max-height: 88%;
-  overflow-y: auto;
-}
-.sheet.open { transform: translateY(0); }
-.sheet-handle {
-  width: 36px; height: 4px;
-  border-radius: 2px;
-  background: var(--divider-color, #ddd);
-  margin: 6px auto 16px;
-}
-.sheet-title {
-  font-size: 16px;
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 20px;
-}
-.sheet-sec {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--secondary-text-color);
-  text-transform: uppercase;
-  letter-spacing: .6px;
-  margin: 0 0 10px;
-}
-
-/* ── Mode sheet ── */
-.mode-list {
-  display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding-bottom: 4px;
-}
-.mode-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 10px 10px;
-  border-radius: 12px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--primary-text-color);
-  transition: background .15s;
-  min-width: 54px;
-}
-.mode-btn:hover { background: var(--secondary-background-color); }
-.mode-btn.active { color: var(--mode-color); font-weight: 600; }
-.mode-ico {
-  width: 44px; height: 44px;
-  border-radius: 50%;
-  background: var(--secondary-background-color);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px;
-  transition: background .15s;
-}
-.mode-btn.active .mode-ico {
-  background: var(--mode-color);
-  color: white;
-}
-
-/* ── Fan sheet ── */
-.fan-auto-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 0 16px;
-  border-bottom: 1px solid var(--divider-color, #eee);
-  margin-bottom: 16px;
-}
-.fan-auto-lbl { font-size: 16px; font-weight: 500; }
-.slider-head {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 10px;
-}
-.slider-lbl { font-size: 14px; color: var(--secondary-text-color); }
-.slider-val { font-size: 14px; font-weight: 600; color: var(--mode-color); }
-input[type=range] {
-  width: 100%;
-  -webkit-appearance: none;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--divider-color, #ddd);
-  outline: none;
-  cursor: pointer;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  background: var(--mode-color);
-  box-shadow: 0 1px 4px rgba(0,0,0,.3);
-  cursor: pointer;
-}
-input[type=range]:disabled { opacity: .4; cursor: default; }
-.slider-ticks {
-  display: flex; justify-content: space-between;
-  font-size: 11px; color: var(--secondary-text-color);
-  margin-top: 5px;
-}
-.dim { opacity: .4; pointer-events: none; }
-
-/* ── Airflow sheet ── */
-.osc-row { display: flex; gap: 10px; margin-bottom: 22px; }
-.osc-pill {
-  flex: 1; padding: 11px 8px;
-  border-radius: 12px;
-  border: 2px solid var(--divider-color, #ddd);
-  background: none;
-  cursor: pointer;
-  font-size: 14px; font-weight: 500;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  transition: all .15s;
-  color: var(--primary-text-color);
-}
-.osc-pill.active {
-  border-color: var(--mode-color);
-  background: var(--chip-bg);
-  color: var(--mode-color);
-}
-.louver-axis-lbl {
-  font-size: 12px;
-  color: var(--secondary-text-color);
-  text-align: center;
-  margin: 8px 0 6px;
-}
-.louver-row {
-  display: flex;
-  justify-content: space-around;
-  padding: 4px 0;
-}
-.louver-row.osc-active { opacity: .3; pointer-events: none; }
-.louver-btn {
-  padding: 4px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background: none;
-  cursor: pointer;
-  transition: all .15s;
-}
-.louver-btn.active {
-  border-color: var(--mode-color);
-  background: var(--chip-bg);
-}
-.louver-off-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px;
-  border-radius: 22px;
-  border: 2px solid var(--divider-color, #ddd);
-  background: none;
-  cursor: pointer;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--secondary-text-color);
-  transition: all .15s;
-}
-.louver-off-btn.active {
-  border-color: var(--mode-color);
-  background: var(--chip-bg);
-  color: var(--mode-color);
-}
-
-/* ── Breeze/presets sheet ── */
-.pill-row {
-  display: flex; gap: 8px; flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-.pill {
-  flex: 1; min-width: 80px;
-  padding: 10px 8px;
-  border-radius: 12px;
-  border: 2px solid var(--divider-color, #ddd);
-  background: none;
-  cursor: pointer;
-  font-size: 13px; font-weight: 500;
-  text-align: center;
-  transition: all .15s;
-  color: var(--primary-text-color);
-}
-.pill.active {
-  border-color: var(--mode-color);
-  background: var(--chip-bg);
-  color: var(--mode-color);
-}
-.pill.unavail { opacity: .35; cursor: default; pointer-events: none; }
-.no-items {
-  color: var(--secondary-text-color);
-  font-size: 13px;
-  padding: 4px 0;
-}
-.timer-cur {
-  color: var(--secondary-text-color);
-  font-size: 13px;
-  margin-bottom: 10px;
-}
+/* expandable sections */
+details { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+summary { list-style: none; cursor: pointer; padding: 13px 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+summary::-webkit-details-marker { display: none; }
+summary ha-icon { font-size: 18px; color: var(--text3); }
+summary small { margin-left: auto; color: var(--text3); font-weight: 500; font-size: 12px; }
+summary .chev { margin-left: 6px; transition: transform .2s; }
+details[open] summary .chev { transform: rotate(180deg); }
+.dc { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+.dc .tog { background: rgba(255,255,255,.03); }
+.diag { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 16px; }
+.diag div { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.diag span { color: var(--text2); } .diag b { font-weight: 600; }
+.range { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--text2); }
+.range input { flex: 1; accent-color: var(--mc); }
+.err { padding: 16px; color: var(--danger); }
 `;
   }
 
-  // ── Full HTML ──────────────────────────────────────────────────────────────
+  // ── HTML ────────────────────────────────────────────────────────────────────
   _html() {
     const { _hass: hass, _config: cfg } = this;
     const entity = hass.states[cfg.entity];
-    if (!entity) {
-      return `<div class="card" style="padding:16px;color:var(--error-color,red)">
-        Entity not found: ${cfg.entity}
-      </div>`;
-    }
+    if (!entity) return `<div class="card err">Entity not found: ${cfg.entity}</div>`;
 
     const mode  = entity.state;
     const attrs = entity.attributes;
-    const mc    = MODE_COLORS[mode] || '#757575';
-    const chipBg = hexA(mc, 0.13);
-    const acOff  = mode === 'off';
+    const acOff = mode === 'off' || mode === 'unavailable';
+    const mc    = MODE_COLORS[mode] || MODE_COLORS.off;
+    const target = attrs.temperature != null ? +attrs.temperature : null;
+    const fanLabel = FAN_LABELS[attrs.fan_mode] || attrs.fan_mode || '';
+    const name = cfg.name || attrs.friendly_name || cfg.entity;
 
-    // ── Thermostat arc ─────────────────────────────────────────────────────
-    const target = attrs.temperature != null ? +attrs.temperature : 22;
-    const minT   = attrs.min_temp || 16;
-    const maxT   = attrs.max_temp || 30;
-    const frac   = Math.max(0, Math.min(1, (target - minT) / (maxT - minT)));
-    const CX = 100, CY = 90, R = 76;
-    const ARC_START = 240, ARC_SWEEP = 240;
-    const trackPath = arcD(CX, CY, R, ARC_START, ARC_SWEEP);
-    const fillSweep = frac * ARC_SWEEP;
-    const fillPath  = arcD(CX, CY, R, ARC_START, fillSweep);
-    const [hx, hy]  = pt(CX, CY, R, ARC_START + (fillSweep < 0.5 ? 0 : fillSweep));
+    let sub;
+    if (mode === 'unavailable') sub = 'Unavailable';
+    else if (acOff) sub = `Off${target != null ? ` · target ${fmtT(target)}°` : ''}`;
+    else if (mode === 'fan_only') sub = `Fan only${fanLabel ? ` · fan ${fanLabel.toLowerCase()}` : ''}`;
+    else sub = `${MODE_VERBS[mode] || MODE_LABELS[mode] || mode}${target != null && mode !== 'dry' ? ` to ${fmtT(target)}°` : ''}${fanLabel ? ` · fan ${fanLabel.toLowerCase()}` : ''}`;
 
-    // ── Stats ──────────────────────────────────────────────────────────────
-    const curTemp    = attrs.current_temperature != null ? (+attrs.current_temperature).toFixed(1) : '—';
-    const humidity   = attrs.current_humidity   != null ? Math.round(attrs.current_humidity)  : null;
-    const outdoorEid = cfg.outdoor_temp;
-    const outdoorRaw = outdoorEid && hass.states[outdoorEid]?.state;
-    const outdoorT   = outdoorRaw && !isNaN(+outdoorRaw) ? (+outdoorRaw).toFixed(1) : null;
-    // Power is only shown when a sensor exists and reports a finite number,
-    // so ACs that don't expose power simply omit the reading. The group 4
-    // energy sensor is preferred; group 7 outdoor unit power is the fallback.
-    const powerMain  = cfg.power ? hass.states[cfg.power] : null;
-    const powerEnt   = (!isUnavail(powerMain) && isFinite(+powerMain?.state))
-      ? powerMain
-      : (cfg.outdoor_unit_power ? hass.states[cfg.outdoor_unit_power] : null);
-    const powerNum   = (!isUnavail(powerEnt) && powerEnt && isFinite(+powerEnt.state)) ? +powerEnt.state : null;
-    const powerUnit  = powerEnt?.attributes?.unit_of_measurement || 'W';
-    const powerDisp  = powerNum == null
-      ? null
-      : (/^kw$/i.test(powerUnit) ? powerNum.toFixed(1) : Math.round(powerNum)) + ' ' + powerUnit;
-
-    // ── Tile data ──────────────────────────────────────────────────────────
-    const fanLabel   = FAN_LABELS[attrs.fan_mode] || attrs.fan_mode || '—';
-    const swingMode  = attrs.swing_mode || 'off';
-    const hOsc = swingMode === 'horizontal' || swingMode === 'both';
-    const vOsc = swingMode === 'vertical'   || swingMode === 'both';
-    // Treat unavailable select state as 'off' so tiles don't show stale positions
-    const hAngEnt = cfg.swing_h_angle ? hass.states[cfg.swing_h_angle] : null;
-    const vAngEnt = cfg.swing_v_angle ? hass.states[cfg.swing_v_angle] : null;
-    const hPos = (!hAngEnt || isUnavail(hAngEnt)) ? 'off' : hAngEnt.state;
-    const vPos = (!vAngEnt || isUnavail(vAngEnt)) ? 'off' : vAngEnt.state;
-    const airActive   = swingMode !== 'off' || hPos !== 'off' || vPos !== 'off';
-    const airIcon     = airTileIcon(swingMode, hPos, vPos, mc);
-    const isCool        = mode === 'cool';
-    const breezeAwayEnt = cfg.breeze_away ? hass.states[cfg.breeze_away] : null;
-    const breezelessEnt = cfg.breezeless  ? hass.states[cfg.breezeless]  : null;
-    const breezeAwayOn  = isCool && !isUnavail(breezeAwayEnt) && breezeAwayEnt?.state === 'on';
-    const breezelessOn  = isCool && !isUnavail(breezelessEnt) && breezelessEnt?.state === 'on';
-    const breezeLabel   = !isCool ? '—' : breezeAwayOn ? 'Away' : breezelessOn ? 'Less' : '—';
-
-    // ── Features (preset needed for breezeActive / breezeTileHtml below) ───────
-    const presets  = attrs.preset_modes || [];
-    const preset   = attrs.preset_mode  || 'none';
-    const ecoAvail = presets.includes('eco');
-    const ecoOn    = preset === 'eco';
-
-    const breezeActive   = (isCool && (breezeAwayOn || breezelessOn)) || (preset && preset !== 'none');
-    const hasBreeze      = !!(cfg.breeze_away || cfg.breezeless);
-    const breezeTileHtml = breezeTileIcons(isCool, breezeAwayOn, breezelessOn, preset, hasBreeze);
-    const displayEnt  = cfg.display   ? hass.states[cfg.display]   : null;
-    const purifierEnt = cfg.purifier  ? hass.states[cfg.purifier]  : null;
-    const flashEnt    = cfg.flash     ? hass.states[cfg.flash]     : null;
-    const displayUnavail  = isUnavail(displayEnt);
-    const purifierUnavail = isUnavail(purifierEnt);
-    const flashUnavail    = isUnavail(flashEnt);
-    const displayOn  = !displayUnavail  && displayEnt?.state  === 'on';
-    const purifierOn = !purifierUnavail && purifierEnt?.state === 'on';
-    const flashOn    = !flashUnavail    && flashEnt?.state    === 'on';
-
-    // ── Read-only status chips (shown only while active) ───────────────────────
-    const STATUS_CHIPS = [
-      ['cool_wind',    '❄',  'Cool wind'],
-      ['natural_wind', '🍃', 'Natural wind'],
-      ['child_sleep',  '🌙', 'Child sleep'],
-    ];
-    const statusChips = STATUS_CHIPS
-      .filter(([k]) => this._entity(k)?.state === 'on')
-      .map(([, icon, lbl]) => `<span class="status-chip">${icon} ${lbl}</span>`)
-      .join('');
-
-    // ── Self-clean ────────────────────────────────────────────────────────────
-    const selfCleanEnt  = cfg.self_clean_sensor ? hass.states[cfg.self_clean_sensor] : null;
-    const selfCleanOn   = selfCleanEnt?.state === 'on';
-    const selfCleanHide = !cfg.self_clean_btn && !cfg.self_clean_sensor;
-
-    // ── Filter alert ───────────────────────────────────────────────────────────
-    const filterAlertEnt = cfg.filter_alert ? hass.states[cfg.filter_alert] : null;
-    const filterAlertOn  = filterAlertEnt?.state === 'on';
-
-    // ── Water tank full alert ──────────────────────────────────────────────────
-    const waterFullEnt = cfg.water_full ? hass.states[cfg.water_full] : null;
-    const waterFullOn  = waterFullEnt?.state === 'on';
-
-    // ── Diagnostics ────────────────────────────────────────────────────────────
-    const diagPresent = DIAG_KEYS.some(k => this._present(k));
-    const diagSummary = [this._fmtSensor('outdoor_unit_power'),
-                         this._fmtSensor('compressor_frequency')]
-      .filter(Boolean).join(' · ') || 'View';
-
-    // ── Timers (two independent tiles: power-on / power-off) ───────────────────
-    const onTimerEnt   = cfg.power_on_timer  ? hass.states[cfg.power_on_timer]  : null;
-    const offTimerEnt  = cfg.power_off_timer ? hass.states[cfg.power_off_timer] : null;
-    const onTimerMin   = timerMinutes(onTimerEnt);
-    const offTimerMin  = timerMinutes(offTimerEnt);
-    // Each tile hides only when its own backing entity isn't configured
-    const onTimerHide  = !cfg.power_on_timer;
-    const offTimerHide = !cfg.power_off_timer;
-    const onTimerSummary  = onTimerMin  > 0 ? `in ${fmtDuration(onTimerMin)}`  : 'Off';
-    const offTimerSummary = offTimerMin > 0 ? `in ${fmtDuration(offTimerMin)}` : 'Off';
-
-    // ── Comfort & Extras ───────────────────────────────────────────────────────
-    // Only surface controls whose entities exist (all are disabled-by-default in
-    // the integration). The tile hides entirely when none are present.
-    const extrasPresent     = EXTRAS_KEYS.some(k => this._present(k));
-    const extrasActiveCount = EXTRAS_TOGGLE_KEYS
-      .filter(k => this._entity(k)?.state === 'on').length;
-    const extrasSummary     = extrasActiveCount > 0 ? `${extrasActiveCount} active` : '—';
+    // Alerts and header buttons
+    const alerts = [
+      this._entity('filter_alert')?.state === 'on' ? `<span class="alert" title="Filter needs cleaning">${ico('mdi:air-filter')}Filter</span>` : '',
+      this._entity('water_full')?.state === 'on' ? `<span class="alert water" title="Water tank full — empty the tank">${ico('mdi:water-alert')}Tank full</span>` : '',
+    ].join('');
+    const hasClean = this._present('self_clean_btn') || this._present('self_clean_sensor');
+    const cleaning = this._entity('self_clean_sensor')?.state === 'on';
+    const statusChips = STATUS_CHIPS.filter(([k]) => this._entity(k)?.state === 'on')
+      .map(([, i, l]) => `<span>${ico(i)}${l}</span>`).join('');
 
     return `
-<div class="card" style="--mode-color:${mc};--chip-bg:${chipBg}">
-
-  <!-- Header -->
-  <div class="header">
-    <span class="name">${attrs.friendly_name || cfg.entity}</span>
-    <div class="header-right">
-      ${filterAlertOn ? `
-      <span class="filter-alert-btn" title="Filter needs cleaning">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-          <path fill="currentColor" d="M13 13v6.59L15.59 22H8.41L11 19.59V13l-9-9V2h20v2z"/>
-        </svg>
-      </span>` : ''}
-      ${waterFullOn ? `
-      <span class="water-full-btn" title="Water tank full — empty the tank">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-          <path fill="currentColor" d="M12 2c-5.33 8-8 11.27-8 14a8 8 0 0 0 16 0c0-2.73-2.67-6-8-14m0 20a6 6 0 0 1-6-6c0-1.77 1.66-4.26 6-10.48c4.34 6.22 6 8.71 6 10.48a6 6 0 0 1-6 6"/>
-        </svg>
-      </span>` : ''}
-      ${!selfCleanHide ? `
-      <button class="self-clean-btn${selfCleanOn ? ' running' : ''}"
-              data-action="start-self-clean"
-              title="${selfCleanOn ? 'Self-clean running…' : 'Start self-clean'}">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48">
-          <path fill="currentColor" d="m34.5 6l-2.167 7.69L28 15.953l4.333 2.262L34.5 25l2.167-6.786L41 15.952l-4.333-2.261zM20 12l-1 4l-3 1l3 1l1 4l1-4l3-1l-3-1zM6 30a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v10.996a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zm11.705-.811c.932-.425 3.21 0 3.21 0l6.626 1.486s1.657.531 3.21.531s.624 2.126-.415 2.868s-1.794.702-1.794.702l-5.35-.065s4.66.85 6.42.956c.891.054 2.42-.574 4.13-1.275c1.665-.684 3.5-1.437 5.084-1.699c3.21-.53 3.728 2.337 2.692 3.399c-1.035 1.062-9.318 5.097-10.767 5.628c-1.136.416-2.509.278-4.058.122c-.429-.043-.872-.088-1.326-.122c-1.81-.137-3.192-.577-4.56-1.012c-1.468-.466-2.919-.927-4.862-1.006c-.652-.026-2.178.055-2.945.1V30.94c1.326-.472 4.011-1.436 4.705-1.752"/>
-        </svg>
-      </button>` : ''}
-      <span class="chip"><span class="chip-dot"></span>${MODE_LABELS[mode] || mode}</span>
+<div class="card ${acOff ? 'off' : ''}" style="--mc:${mc}">
+  <div class="hd">
+    <div class="ic">${ico('mdi:air-conditioner')}</div>
+    <div class="ht"><h3>${name}</h3><p>${sub}</p></div>
+    <div class="hr">
+      ${alerts}
+      ${hasClean ? `<button class="iconbtn${cleaning ? ' run' : ''}" data-action="start-self-clean" title="${cleaning ? 'Self-clean running…' : 'Start self-clean'}">${ico('mdi:shimmer')}</button>` : ''}
+      <button class="power${acOff ? ' off' : ''}" data-action="toggle-power" title="${acOff ? 'Turn on (last mode)' : 'Turn off'}">${ico('mdi:power')}</button>
     </div>
   </div>
-
-  <!-- Thermostat -->
-  <div class="thermo">
-    <div class="dial-wrap">
-      <svg class="dial-svg" viewBox="0 0 200 155" xmlns="http://www.w3.org/2000/svg">
-        <path d="${trackPath}" fill="none"
-              stroke="${hexA('#888888', 0.22)}" stroke-width="10" stroke-linecap="round"/>
-        <path id="arc-fill" d="${fillPath || ''}" fill="none"
-              stroke="${mc}" stroke-width="10" stroke-linecap="round"
-              ${fillPath ? '' : 'style="display:none"'}/>
-        <circle id="arc-handle" cx="${hx}" cy="${hy}" r="8"
-                fill="white" stroke="${mc}" stroke-width="2.5"/>
-      </svg>
-      <div class="dial-center">
-        <button class="dial-btn" data-action="temp-down" ${acOff ? 'disabled' : ''}>−</button>
-        <div class="dial-temp">
-          <span class="dial-val" id="arc-temp-val">${target}</span><span class="dial-unit">°C</span>
-        </div>
-        <button class="dial-btn" data-action="temp-up" ${acOff ? 'disabled' : ''}>+</button>
-      </div>
-    </div>
+  ${statusChips ? `<div class="status">${statusChips}</div>` : ''}
+  <div class="body">
+    ${acOff ? this._offHtml(attrs) : this._onHtml(entity, mc)}
   </div>
-
-  <!-- Stats -->
-  <div class="stats">
-    ${outdoorT ? `<span class="stat"><span class="stat-icon">☁</span>${outdoorT}°</span>` : ''}
-    <span class="stat"><span class="stat-icon">🏠</span>${curTemp}°</span>
-    ${humidity != null ? `<span class="stat"><span class="stat-icon">💧</span>${humidity}%</span>` : ''}
-    ${powerDisp != null ? `<span class="stat"><span class="stat-icon">⚡</span>${powerDisp}</span>` : ''}
-  </div>
-
-  ${statusChips ? `<div class="status-chips">${statusChips}</div>` : ''}
-
-  <div class="sep"></div>
-
-  <!-- Tiles 2×2 -->
-  <div class="tiles">
-    <div class="tile${!acOff ? ' active' : ''}" data-action="open-mode">
-      <span class="tile-lbl">Mode</span>
-      <div class="tile-row">
-        <span class="tile-val">${MODE_LABELS[mode] || mode}</span>
-        <span class="tile-icon">${MODE_ICONS[mode] || ''}</span>
-      </div>
-    </div>
-    <div class="tile${attrs.fan_mode && attrs.fan_mode !== 'auto' ? ' active' : ''}" data-action="open-fan">
-      <span class="tile-lbl">Fan Speed</span>
-      <div class="tile-row">
-        <span class="tile-val">${fanLabel}</span>
-        <span class="tile-icon">⟳</span>
-      </div>
-    </div>
-    <div class="tile${airActive ? ' active' : ''}" data-action="open-airflow">
-      <span class="tile-lbl">Airflow</span>
-      <div class="tile-row">
-        ${airIcon}
-        <span class="tile-icon">↗</span>
-      </div>
-    </div>
-    <div class="tile${breezeActive ? ' active' : ''}" data-action="open-breeze">
-      <span class="tile-lbl">Breeze & Presets</span>
-      <div class="tile-row">
-        ${breezeTileHtml}
-        <span class="tile-icon">〰</span>
-      </div>
-    </div>
-    ${onTimerHide ? '' : `
-    <div class="tile${onTimerMin > 0 ? ' active' : ''}" data-action="open-timer-on">
-      <span class="tile-lbl">Start Delay</span>
-      <div class="tile-row">
-        <span class="tile-val">${onTimerSummary}</span>
-        <span class="tile-icon">⏱</span>
-      </div>
-    </div>`}
-    ${offTimerHide ? '' : `
-    <div class="tile${offTimerMin > 0 ? ' active' : ''}" data-action="open-timer-off">
-      <span class="tile-lbl">Stop Delay</span>
-      <div class="tile-row">
-        <span class="tile-val">${offTimerSummary}</span>
-        <span class="tile-icon">⏱</span>
-      </div>
-    </div>`}
-    ${!extrasPresent ? '' : `
-    <div class="tile tile-wide${extrasActiveCount > 0 ? ' active' : ''}" data-action="open-extras">
-      <span class="tile-lbl">Comfort &amp; Extras</span>
-      <div class="tile-row">
-        <span class="tile-val">${extrasSummary}</span>
-        <span class="tile-icon">✨</span>
-      </div>
-    </div>`}
-    ${!diagPresent ? '' : `
-    <div class="tile tile-wide" data-action="open-diag">
-      <span class="tile-lbl">Diagnostics</span>
-      <div class="tile-row">
-        <span class="tile-val">${diagSummary}</span>
-        <span class="tile-icon">📈</span>
-      </div>
-    </div>`}
-  </div>
-
-  <div class="sep"></div>
-
-  <!-- Feature rows -->
-  <div class="features">
-    ${ecoAvail ? `
-    <div class="feature">
-      <div class="feature-ico">♻</div>
-      <div class="feature-info">
-        <div class="feature-name">iECO</div>
-        <div class="feature-desc">Improves efficiency while maintaining comfort</div>
-      </div>
-      <button class="tog${ecoOn ? ' on' : ''}"
-              data-action="toggle-preset" data-val="eco"></button>
-    </div>` : ''}
-    ${cfg.display ? `
-    <div class="feature${displayUnavail ? ' unavail' : ''}">
-      <div class="feature-ico">🖥</div>
-      <div class="feature-info">
-        <div class="feature-name">LED Display</div>
-        ${displayUnavail ? '<div class="feature-desc">Unavailable — turn on AC first</div>' : ''}
-      </div>
-      <button class="tog${displayOn ? ' on' : ''}"
-              data-action="toggle-switch" data-entity="${cfg.display}"
-              ${displayUnavail ? 'disabled' : ''}></button>
-    </div>` : ''}
-    ${cfg.purifier ? `
-    <div class="feature${purifierUnavail ? ' unavail' : ''}">
-      <div class="feature-ico">🌿</div>
-      <div class="feature-info">
-        <div class="feature-name">Purifier</div>
-        ${purifierUnavail ? '<div class="feature-desc">Unavailable — turn on AC first</div>' : ''}
-      </div>
-      <button class="tog${purifierOn ? ' on' : ''}"
-              data-action="toggle-switch" data-entity="${cfg.purifier}"
-              ${purifierUnavail ? 'disabled' : ''}></button>
-    </div>` : ''}
-    ${this._present('flash') ? `
-    <div class="feature${flashUnavail ? ' unavail' : ''}">
-      <div class="feature-ico">🚀</div>
-      <div class="feature-info">
-        <div class="feature-name">Flash</div>
-        <div class="feature-desc">${flashUnavail ? 'Unavailable — turn on AC first' : 'Rapid cool / heat boost'}</div>
-      </div>
-      <button class="tog${flashOn ? ' on' : ''}"
-              data-action="toggle-switch" data-entity="${cfg.flash}"
-              ${flashUnavail ? 'disabled' : ''}></button>
-    </div>` : ''}
-  </div>
-
-  <!-- Power button -->
-  <div class="power-wrap">
-    <button class="power-btn${!acOff ? ' on' : ''}" data-action="toggle-power">
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none"
-           stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M12 3v9"/>
-        <path d="M7.2 6.1A8 8 0 1 0 16.8 6.1"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- Overlay (closes any open sheet) -->
-  <div class="overlay" id="overlay"></div>
-
-  <!-- ── Mode sheet ── -->
-  <div class="sheet" data-sheet="mode">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Mode</div>
-    ${this._modeSheetHtml(mode, attrs, mc)}
-  </div>
-
-  <!-- ── Fan Speed sheet ── -->
-  <div class="sheet" data-sheet="fan">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Fan Speed</div>
-    ${this._fanSheetHtml(attrs)}
-  </div>
-
-  <!-- ── Airflow sheet ── -->
-  <div class="sheet" data-sheet="airflow">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Airflow</div>
-    ${this._airflowSheetHtml(attrs, mc)}
-  </div>
-
-  <!-- ── Breeze & Presets sheet ── -->
-  <div class="sheet" data-sheet="breeze">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Breeze & Presets</div>
-    ${this._breezeSheetHtml(attrs, mc, mode)}
-  </div>
-
-  ${onTimerHide ? '' : `
-  <!-- ── Power-on timer sheet ── -->
-  <div class="sheet" data-sheet="timer-on">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Turn On Automatically</div>
-    ${this._timerSheetHtml('on', acOff, onTimerMin)}
-  </div>`}
-
-  ${offTimerHide ? '' : `
-  <!-- ── Power-off timer sheet ── -->
-  <div class="sheet" data-sheet="timer-off">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Turn Off Automatically</div>
-    ${this._timerSheetHtml('off', acOff, offTimerMin)}
-  </div>`}
-
-  ${!extrasPresent ? '' : `
-  <!-- ── Comfort & Extras sheet ── -->
-  <div class="sheet" data-sheet="extras">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Comfort &amp; Extras</div>
-    ${this._extrasSheetHtml(acOff)}
-  </div>`}
-
-  ${!diagPresent ? '' : `
-  <!-- ── Diagnostics sheet ── -->
-  <div class="sheet" data-sheet="diag">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Diagnostics</div>
-    ${this._diagSheetHtml()}
-  </div>`}
-
 </div>`;
   }
 
-  // ── Sheet HTML generators ────────────────────────────────────────────────
-
-  _modeSheetHtml(currentMode, attrs, mc) {
-    const available = (attrs.hvac_modes || ['cool','heat','dry','fan_only','auto'])
-      .filter(m => m !== 'off');
-    const btns = available.map(m => `
-      <button class="mode-btn${m === currentMode ? ' active' : ''}"
-              data-action="set-hvac-mode" data-val="${m}">
-        <div class="mode-ico">${MODE_ICONS[m] || m}</div>
-        ${MODE_LABELS[m] || m}
-      </button>`).join('');
-    return `<div class="mode-list">${btns}</div>`;
+  _statsHtml(attrs, withInside = true) {
+    const cfg = this._config;
+    const out = this._entity('outdoor_temp');
+    const outT = out && !isUnavail(out) && isFinite(+out.state) ? `${fmtT(+out.state)}°` : null;
+    const cur = attrs.current_temperature != null ? `${fmtT(+attrs.current_temperature)}°` : null;
+    const hum = attrs.current_humidity != null ? `${Math.round(attrs.current_humidity)}%` : null;
+    // Group 4 power sensor first, outdoor-unit power as the fallback.
+    const pMain = this._entity('power');
+    const pEnt = (!isUnavail(pMain) && isFinite(+pMain?.state)) ? pMain
+      : (cfg.outdoor_unit_power ? this._hass.states[cfg.outdoor_unit_power] : null);
+    const pNum = (!isUnavail(pEnt) && pEnt && isFinite(+pEnt.state)) ? +pEnt.state : null;
+    const pUnit = pEnt?.attributes?.unit_of_measurement || 'W';
+    const pow = pNum == null ? null : `${/^kw$/i.test(pUnit) ? pNum.toFixed(1) : Math.round(pNum)} ${pUnit}`;
+    const cells = [
+      outT && ['mdi:weather-partly-cloudy', 'Outside', outT],
+      withInside && cur && ['mdi:home-outline', 'Inside', cur],
+      hum && ['mdi:water-outline', 'Humidity', hum],
+      pow && ['mdi:flash-outline', 'Power', pow],
+    ].filter(Boolean);
+    if (!cells.length) return '';
+    return `<div class="stats">${cells.map(([i, l, v]) => `<div class="stat"><span>${ico(i)}${l}</span><b>${v}</b></div>`).join('')}</div>`;
   }
 
-  _fanSheetHtml(attrs) {
-    const { _hass: hass, _config: cfg } = this;
-    const isAuto      = attrs.fan_mode === 'auto';
-    const fanSpeedEid = cfg.fan_speed;
-    const fsEntity    = fanSpeedEid ? hass.states[fanSpeedEid] : null;
-    const fsUnavail   = isUnavail(fsEntity);
-    // Guard against 'unavailable' state value being coerced to NaN
-    const fsRaw  = fsEntity && !fsUnavail ? +fsEntity.state : NaN;
-    const fsVal  = isNaN(fsRaw) ? 50 : Math.min(Math.round(fsRaw), 100);
-    const fsMin  = fsEntity?.attributes?.min ?? 1;
-    const fsMax  = fsEntity?.attributes?.max ?? 100;
-    // Slider is disabled when auto mode is active OR entity is unavailable
-    const sliderDisabled = isAuto || fsUnavail;
-    return `
-    <div class="fan-auto-row">
-      <span class="fan-auto-lbl">Auto</span>
-      <button class="tog${isAuto ? ' on' : ''}" data-action="toggle-fan-auto"></button>
-    </div>
-    ${fanSpeedEid ? `
-    <div class="${sliderDisabled ? 'dim' : ''}">
-      <div class="slider-head">
-        <span class="slider-lbl">Fan Speed</span>
-        <span class="slider-val" id="fan-val">${fsUnavail ? 'Unavailable' : fsVal + '%'}</span>
+  _dialSvg(temp, minT, maxT, mc) {
+    const { CX, CY, R, START, SWEEP, TICKS, W, H } = DIAL;
+    const frac = Math.max(0, Math.min(1, (temp - minT) / (maxT - minT)));
+    const end = frac * SWEEP;
+    const gid = `acg-${this._uid}`;
+    let ticks = '';
+    for (let i = 0; i <= TICKS; i++) {
+      const a = START + SWEEP * i / TICKS;
+      const major = i % 5 === 0;
+      const [x1, y1] = pt(CX, CY, R + 14, a);
+      const [x2, y2] = pt(CX, CY, R + (major ? 20 : 18), a);
+      const lit = SWEEP * i / TICKS <= end + 0.01;
+      ticks += `<line class="tk" data-f="${i / TICKS}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${lit ? mc : 'rgba(255,255,255,.14)'}" stroke-width="${major ? 1.6 : 1}" stroke-linecap="round" opacity="${lit ? .8 : 1}"/>`;
+    }
+    const [hx, hy] = pt(CX, CY, R, START + end);
+    return `<svg class="dial-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="${gid}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="${mc}" stop-opacity=".55"/><stop offset="1" stop-color="${mc}"/></linearGradient></defs>
+      ${ticks}
+      <path d="${arcD(CX, CY, R, START, SWEEP)}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="16" stroke-linecap="round"/>
+      <path id="arc-fill" d="${arcD(CX, CY, R, START, end)}" fill="none" stroke="url(#${gid})" stroke-width="16" stroke-linecap="round" style="filter:drop-shadow(0 0 8px ${mc})${end < 0.5 ? ';display:none' : ''}"/>
+      <circle id="arc-handle" cx="${hx}" cy="${hy}" r="12" fill="#fff" stroke="${mc}" stroke-width="4"/>
+    </svg>`;
+  }
+
+  _onHtml(entity, mc) {
+    const attrs = entity.attributes;
+    const mode = entity.state;
+    const target = attrs.temperature != null ? +attrs.temperature : 22;
+    const minT = attrs.min_temp || 16, maxT = attrs.max_temp || 30;
+    const act = ACTION_LABELS[attrs.hvac_action] || MODE_VERBS[mode] || MODE_LABELS[mode] || mode;
+    const cur = attrs.current_temperature != null ? `${fmtT(+attrs.current_temperature)}° now` : '';
+
+    const left = `
+    <div class="left"><div class="dialbox">
+      <div class="dial">
+        ${this._dialSvg(target, minT, maxT, mc)}
+        <div class="ctr">
+          <div class="act">${act}</div>
+          <div class="set"><span id="arc-temp-val">${fmtT(target)}</span><sup>°C</sup></div>
+          ${cur ? `<div class="now">${ico('mdi:home-thermometer-outline')} ${cur}</div>` : ''}
+        </div>
       </div>
-      <input type="range" id="fan-slider" data-action="fan-slider"
-             min="${fsMin}" max="${fsMax}" value="${fsVal}"
-             ${sliderDisabled ? 'disabled' : ''}>
-      <div class="slider-ticks">
-        <span>${fsMin}%</span><span>20%</span><span>40%</span>
-        <span>60%</span><span>80%</span><span>${fsMax}%</span>
+      <div class="steps">
+        <button class="step" data-action="temp-down" title="−0.5°">${ico('mdi:minus')}</button>
+        <span>${minT}–${maxT}° · 0.5° steps</span>
+        <button class="step" data-action="temp-up" title="+0.5°">${ico('mdi:plus')}</button>
       </div>
-    </div>` : `
-    <p style="color:var(--secondary-text-color);font-size:13px;padding:4px 0">
-      Set <code>fan_speed:</code> in the card config to enable the speed slider.
-    </p>`}`;
-  }
+      ${this._statsHtml(attrs)}
+    </div></div>`;
 
-  _airflowSheetHtml(attrs, mc) {
-    const { _hass: hass, _config: cfg } = this;
-    const swingModes = attrs.swing_modes || [];
-    const swingMode  = attrs.swing_mode  || 'off';
-    const hOsc = swingMode === 'horizontal' || swingMode === 'both';
-    const vOsc = swingMode === 'vertical'   || swingMode === 'both';
-    // Only show oscillation pills for axes the device actually supports
-    const canSwingH = swingModes.includes('horizontal') || swingModes.includes('both');
-    const canSwingV = swingModes.includes('vertical')   || swingModes.includes('both');
-
-    // Map select entity state → 0-based index  (pos_1→0 … pos_5→4, off→-1)
-    const posIdx = s => s?.startsWith('pos_') ? parseInt(s.slice(4), 10) - 1 : -1;
-    const hEid  = cfg.swing_h_angle;
-    const vEid  = cfg.swing_v_angle;
-    const hEnt  = hEid ? hass.states[hEid] : null;
-    const vEnt  = vEid ? hass.states[vEid] : null;
-    const hUnavail = isUnavail(hEnt);
-    const vUnavail = isUnavail(vEnt);
-    const hState = (!hEnt || hUnavail) ? 'off' : hEnt.state;
-    const vState = (!vEnt || vUnavail) ? 'off' : vEnt.state;
-    const hIdx  = posIdx(hState);
-    const vIdx  = posIdx(vState);
-
-    const makeRow = (louver, activeIdx, isOsc, isEntUnavail, action, offAction) => {
-      // Dim the row if oscillating (positions meaningless) OR if the select entity is unavailable
-      const dimmed = isOsc || isEntUnavail;
-      const note   = isEntUnavail ? '<p class="no-items" style="font-size:11px;margin-top:4px">Unavailable — turn on AC first</p>' : '';
-      const offBtn = `
-        <button class="louver-off-btn${activeIdx === -1 && !isOsc ? ' active' : ''}"
-                data-action="${offAction}">−</button>`;
-      const posBtns = [0,1,2,3,4].map(i => `
-        <button class="louver-btn${i === activeIdx ? ' active' : ''}"
-                data-action="${action}" data-val="pos_${i+1}">
-          ${louverSvg(louver, i, mc, 42)}
-        </button>`).join('');
-      return `<div class="louver-row${dimmed ? ' osc-active' : ''}">
-        ${offBtn}${posBtns}
-      </div>${note}`;
-    };
-
-    const oscPills = (canSwingH || canSwingV) ? `
-    <div class="sheet-sec">Fan Direction</div>
-    <div class="osc-row">
-      ${canSwingV ? `<button class="osc-pill${vOsc ? ' active' : ''}" data-action="toggle-osc-v">${autoSwingVSvg(vOsc ? mc : '#888')} Up and Down</button>` : ''}
-      ${canSwingH ? `<button class="osc-pill${hOsc ? ' active' : ''}" data-action="toggle-osc-h">${autoSwingHSvg(hOsc ? mc : '#888')} Left and Right</button>` : ''}
-    </div>` : '';
-
-    // Actual louver angles reported by the unit (group 11 diagnostic sensors)
-    const hNow = this._fmtSensor('louvers_h_angle');
-    const vNow = this._fmtSensor('louvers_v_angle');
-    const actualLine = (hNow || vNow) ? `
-    <p class="louver-actual">Actual position:${hNow ? ` &nbsp;↔ ${hNow}` : ''}${vNow ? ` &nbsp;↕ ${vNow}` : ''}</p>` : '';
-
-    return `${oscPills}
-    <div class="sheet-sec">Custom Direction</div>
-    <div class="louver-axis-lbl">Horizontal ↔</div>
-    ${hEid
-      ? makeRow(LOUVER_H, hIdx, hOsc, hUnavail, 'set-h-angle', 'set-h-off')
-      : '<p class="no-items">Configure <code>swing_h_angle</code> to enable.</p>'}
-    <div class="louver-axis-lbl" style="margin-top:14px">Vertical ↕</div>
-    ${vEid
-      ? makeRow(LOUVER_V, vIdx, vOsc, vUnavail, 'set-v-angle', 'set-v-off')
-      : '<p class="no-items">Configure <code>swing_v_angle</code> to enable.</p>'}
-    ${actualLine}`;
-  }
-
-  _breezeSheetHtml(attrs, mc, mode) {
-    const { _hass: hass, _config: cfg } = this;
-    const isCool = mode === 'cool';
-
-    const breezeAwayEnt = cfg.breeze_away ? hass.states[cfg.breeze_away] : null;
-    const breezelessEnt = cfg.breezeless  ? hass.states[cfg.breezeless]  : null;
-    const breezeAwayUnavail = !isCool || isUnavail(breezeAwayEnt);
-    const breezelessUnavail = !isCool || isUnavail(breezelessEnt);
-    const breezeAwayOn = isCool && !isUnavail(breezeAwayEnt) && breezeAwayEnt?.state === 'on';
-    const breezelessOn = isCool && !isUnavail(breezelessEnt) && breezelessEnt?.state === 'on';
-    // "Normal" is active when neither breeze mode is on
-    const normalOn     = !breezeAwayOn && !breezelessOn;
-
-    const rateEid    = cfg.rate_select;
-    const rateEnt    = rateEid ? hass.states[rateEid] : null;
-    const rateUnavail = !isCool || isUnavail(rateEnt);
-    // Only use rateState if the entity is available; default to 'off' otherwise
-    const rateState  = (!rateUnavail && rateEnt) ? rateEnt.state : null;
-
-    const presets   = attrs.preset_modes || [];
-    const preset    = attrs.preset_mode  || 'none';
-
-    const presetDefs = [
-      { id: 'sleep', label: `${iconSvg('preset_sleep', 16)} Sleep` },
-      { id: 'boost', label: `${iconSvg('preset_boost', 16)} Boost` },
-      { id: 'away',  label: `${iconSvg('preset_away',  16)} Away`  },
-    ];
-
-    const presetPills = presetDefs.map(p => {
-      const avail  = presets.includes(p.id);
-      const active = preset === p.id;
-      return `<button class="pill${active ? ' active' : ''}${!avail ? ' unavail' : ''}"
-                      data-action="toggle-preset" data-val="${p.id}">${p.label}</button>`;
-    }).join('');
-
-    const hasBreeze = cfg.breeze_away || cfg.breezeless;
-    return `
-    ${hasBreeze ? `
-    <div class="sheet-sec">Breeze Mode</div>
-    <div class="pill-row">
-      <button class="pill${normalOn ? ' active' : ''}" data-action="set-breeze-normal">${iconSvg('breeze_normal', 16)} Normal</button>
-      ${cfg.breeze_away
-        ? `<button class="pill${breezeAwayOn ? ' active' : ''}${breezeAwayUnavail ? ' unavail' : ''}"
-                  data-action="set-breeze-away">${iconSvg('breeze_away', 16)} Breeze Away</button>` : ''}
-      ${cfg.breezeless
-        ? `<button class="pill${breezelessOn ? ' active' : ''}${breezelessUnavail ? ' unavail' : ''}"
-                  data-action="set-breezeless">${iconSvg('breeze_less', 16)} Breezeless</button>` : ''}
-    </div>
-    ${!isCool
-      ? '<p class="no-items" style="margin-top:-10px;margin-bottom:12px">Available in Cool mode only</p>'
-      : (breezeAwayUnavail || breezelessUnavail)
-        ? '<p class="no-items" style="margin-top:-10px;margin-bottom:12px">Breeze options unavailable — turn on AC first</p>'
-        : ''}
-    ` : ''}
-
-    ${rateEid ? `
-    <div class="sheet-sec">Output Rate</div>
-    ${rateUnavail
-      ? `<p class="no-items">${!isCool ? 'Available in Cool mode only' : 'Unavailable — turn on AC first'}</p>`
-      : `<div class="pill-row">
-          <button class="pill${rateState === 'off' ? ' active' : ''}"
-                  data-action="set-rate" data-val="off">⊙ Full</button>
-          <button class="pill${rateState === 'gear_75' ? ' active' : ''}"
-                  data-action="set-rate" data-val="gear_75">75%</button>
-          <button class="pill${rateState === 'gear_50' ? ' active' : ''}"
-                  data-action="set-rate" data-val="gear_50">50%</button>
-        </div>`}
-    ` : ''}
-
-    <div class="sheet-sec">Presets</div>
-    <div class="pill-row">
-      ${presetPills || '<span class="no-items">No presets in current mode</span>'}
+    return `${left}
+    <div class="right">
+      ${this._modeHtml(attrs, mode)}
+      ${this._fanHtml(attrs)}
+      ${this._airflowHtml(attrs, mc)}
+      ${this._comfortHtml(attrs, mode)}
+      ${this._togglesHtml(attrs)}
+      ${this._timerHtml(false)}
+      ${this._extrasHtml()}
+      ${this._diagHtml()}
     </div>`;
   }
 
-  _timerSheetHtml(which, acOff, currentMin) {
-    const action = which === 'on' ? 'set-on-timer' : 'set-off-timer';
-
-    // Build a row of preset-duration pills for this timer
-    const pills = TIMER_PRESETS.map(min => {
-      const active = min === 0 ? currentMin <= 0 : Math.round(currentMin) === min;
-      return `<button class="pill${active ? ' active' : ''}"
-                      data-action="${action}" data-val="${min}">${min === 0 ? 'Off' : fmtDuration(min)}</button>`;
-    }).join('');
-
-    if (which === 'on') {
-      // Power-on timer only makes sense while the AC is off
-      return acOff
-        ? `<div class="timer-cur">${currentMin > 0 ? `Powers on in ${fmtDuration(currentMin)}` : 'No power-on timer set'}</div>
-           <div class="pill-row">${pills}</div>`
-        : '<p class="no-items">AC is already on</p>';
-    }
-
-    // Power-off timer only makes sense while the AC is running
-    return !acOff
-      ? `<div class="timer-cur">${currentMin > 0 ? `Powers off in ${fmtDuration(currentMin)}` : 'No power-off timer set'}</div>
-         <div class="pill-row">${pills}</div>`
-      : '<p class="no-items">Turn on the AC first</p>';
+  _offHtml(attrs) {
+    const cur = attrs.current_temperature != null ? fmtT(+attrs.current_temperature) : '—';
+    const target = attrs.temperature != null ? `Target ${fmtT(+attrs.temperature)}°` : '';
+    const modes = orderedModes(attrs);
+    const quick = modes.map(m => `
+      <button class="qk" style="--qc:${MODE_COLORS[m] || MODE_COLORS.off}" data-action="set-hvac-mode" data-val="${m}">
+        <span class="q">${MODE_ICONS[m] || ''}</span>
+        <span><b>${MODE_LABELS[m] || m}</b><small>${QUICK_DESC[m] || ''}</small></span>
+      </button>`).join('');
+    return `
+    <div class="left">
+      <div class="offhero">
+        <div class="label">Room now</div>
+        <div class="big">${cur}<sup>°C</sup></div>
+        ${target ? `<p>${target}</p>` : ''}
+        ${this._statsHtml(attrs, false)}
+      </div>
+    </div>
+    <div class="right">
+      <div class="blk"><div class="bh"><span class="label">Start</span><small>power button resumes the last mode</small></div>
+        <div class="quick">${quick}</div></div>
+      ${this._timerHtml(true)}
+      ${this._togglesHtml(attrs)}
+      ${this._extrasHtml()}
+      ${this._diagHtml()}
+    </div>`;
   }
 
-  _extrasSheetHtml(acOff) {
-    const cfg = this._config;
-    const sections = [];
+  _modeHtml(attrs, mode) {
+    const modes = orderedModes(attrs);
+    return `<div class="blk"><div class="bh"><span class="label">Mode</span></div>
+      <div class="seg">${modes.map(m => `
+        <button class="m-${m}${m === mode ? ' on' : ''}" data-action="set-hvac-mode" data-val="${m}">${MODE_ICONS[m] || ''}${MODE_LABELS[m] || m}</button>`).join('')}
+      </div></div>`;
+  }
 
-    // Build a standard feature row (icon + name/desc + toggle) for a switch key
-    const toggleRow = (key, meta) => {
-      const ent = this._entity(key);
-      const unavail = isUnavail(ent);
-      const on = !unavail && ent.state === 'on';
-      return `
-      <div class="feature${unavail ? ' unavail' : ''}">
-        <div class="feature-ico">${meta.icon}</div>
-        <div class="feature-info">
-          <div class="feature-name">${meta.name}</div>
-          <div class="feature-desc">${unavail ? 'Unavailable — turn on AC first' : meta.desc}</div>
-        </div>
-        <button class="tog${on ? ' on' : ''}" data-action="toggle-switch"
-                data-entity="${cfg[key]}" ${unavail ? 'disabled' : ''}></button>
+  // Fan: 10 bars. With a fan_speed number entity a drag/tap sets the exact %;
+  // otherwise the bar position picks the nearest named fan mode.
+  _fanModesNamed(attrs) {
+    return (attrs.fan_modes || []).filter(m => m !== 'auto' && m !== 'custom');
+  }
+  _fanPct(attrs) {
+    const fs = this._entity('fan_speed');
+    if (fs && !isUnavail(fs) && isFinite(+fs.state)) return Math.round(+fs.state);
+    const named = this._fanModesNamed(attrs);
+    const i = named.indexOf(attrs.fan_mode);
+    return i < 0 ? 0 : Math.round((i + 1) / named.length * 100);
+  }
+  _fanLabel(attrs, pct) {
+    if (attrs.fan_mode === 'auto') return 'Auto';
+    const fs = this._entity('fan_speed');
+    const lbl = FAN_LABELS[attrs.fan_mode] || attrs.fan_mode || '';
+    return fs && !isUnavail(fs) ? `${lbl} · ${pct}%` : lbl;
+  }
+  _barsHtml(pct) {
+    return Array.from({ length: 10 }, (_, i) =>
+      `<span style="height:${28 + i * 8}%" class="${(i + 1) * 10 <= pct + 5 ? 'on' : ''}"></span>`).join('');
+  }
+  _fanHtml(attrs) {
+    if (!(attrs.fan_modes || []).length) return '';
+    const auto = attrs.fan_mode === 'auto';
+    const pct = auto ? 0 : this._fanPct(attrs);
+    const hasAuto = (attrs.fan_modes || []).includes('auto');
+    return `<div class="blk"><div class="bh"><span class="label">Fan speed</span><small id="fan-lbl">${this._fanLabel(attrs, pct)}${auto ? ' · tap the bars to set a speed' : ''}</small></div>
+      <div class="fan">
+        <div class="bars${auto ? ' auto' : ''}" data-drag>${this._barsHtml(pct)}</div>
+        ${hasAuto ? `<button class="chipbtn${auto ? ' on' : ''}" data-action="toggle-fan-auto">${ico('mdi:fan-auto')}Auto</button>` : ''}
+      </div></div>`;
+  }
+
+  _airflowHtml(attrs, mc) {
+    const swingModes = attrs.swing_modes || [];
+    const sm = attrs.swing_mode || 'off';
+    const hOsc = sm === 'horizontal' || sm === 'both';
+    const vOsc = sm === 'vertical' || sm === 'both';
+    const canH = swingModes.includes('horizontal') || swingModes.includes('both');
+    const canV = swingModes.includes('vertical') || swingModes.includes('both');
+    const hEnt = this._entity('swing_h_angle'), vEnt = this._entity('swing_v_angle');
+    if (!canH && !canV && !hEnt && !vEnt) return '';
+    const idx = s => s?.startsWith('pos_') ? parseInt(s.slice(4), 10) - 1 : -1;
+
+    const group = (axis) => {
+      const v = axis === 'v';
+      const ent = v ? vEnt : hEnt;
+      const can = v ? canV : canH;
+      const osc = v ? vOsc : hOsc;
+      if (!ent && !can) return '';
+      const unavail = ent && isUnavail(ent);
+      const cur = ent && !unavail ? idx(ent.state) : -1;
+      const pos = ent ? `<div class="pos">${[0, 1, 2, 3, 4].map(i => `
+        <button class="${i === cur ? 'on' : ''}" ${unavail || osc ? 'disabled' : ''}
+          data-action="${i === cur ? `set-${axis === 'v' ? 'v' : 'h'}-off` : `set-${axis === 'v' ? 'v' : 'h'}-angle`}" data-val="pos_${i + 1}"
+          title="${i === cur ? 'Release' : `Position ${i + 1}`}">${louverSvg(v ? LOUVER_V : LOUVER_H, i, mc, 26)}</button>`).join('')}</div>` : '';
+      return `<div class="louver${osc || unavail ? ' dim' : ''}">
+        <div class="lh">${v ? 'Up / down' : 'Left / right'}
+          ${can ? `<button class="sw${osc ? ' on' : ''}" data-action="toggle-osc-${axis}">${ico(v ? 'mdi:swap-vertical' : 'mdi:swap-horizontal')}${osc ? 'Swinging' : 'Swing'}</button>` : ''}</div>
+        ${pos}
+        ${unavail && !osc ? '<p class="note">Unavailable right now</p>' : ''}
       </div>`;
     };
 
-    // ── Fresh Air: toggle + fan-speed slider ────────────────────────────────
-    if (this._present('fresh_air')) {
-      const faEnt = this._entity('fresh_air');
-      const faOn = !isUnavail(faEnt) && faEnt.state === 'on';
-      const speedEnt = this._entity('fresh_air_fan_speed');
-      const spUnavail = isUnavail(speedEnt);
-      const spRaw = speedEnt && !spUnavail ? +speedEnt.state : NaN;
-      const spVal = isNaN(spRaw) ? 50 : Math.min(Math.round(spRaw), 100);
-      const spMin = speedEnt?.attributes?.min ?? 1;
-      const spMax = speedEnt?.attributes?.max ?? 100;
-      // Speed slider is only meaningful while fresh air is on
-      const sliderDisabled = !faOn || spUnavail;
-      sections.push(`
-      <div class="sheet-sec">Fresh Air</div>
-      ${toggleRow('fresh_air', EXTRAS_TOGGLE_META.fresh_air)}
-      ${speedEnt ? `
-      <div class="${sliderDisabled ? 'dim' : ''}" style="margin-top:12px">
-        <div class="slider-head">
-          <span class="slider-lbl">Fresh air speed</span>
-          <span class="slider-val" id="fresh-air-val">${spUnavail ? 'Unavailable' : spVal + '%'}</span>
-        </div>
-        <input type="range" id="fresh-air-slider" data-action="fresh-air-slider"
-               min="${spMin}" max="${spMax}" value="${spVal}" ${sliderDisabled ? 'disabled' : ''}>
-      </div>` : ''}`);
-    }
+    const desc = sm === 'both' ? 'Swinging both ways'
+      : sm === 'vertical' ? 'Swinging up and down'
+      : sm === 'horizontal' ? 'Swinging left and right'
+      : 'Tap a position again to release it';
+    const hNow = this._fmtSensor('louvers_h_angle'), vNow = this._fmtSensor('louvers_v_angle');
+    const actual = (hNow || vNow) ? `<p class="note">Louvers now:${vNow ? ` ↕ ${vNow}` : ''}${hNow ? ` ↔ ${hNow}` : ''}</p>` : '';
+    return `<div class="blk"><div class="bh"><span class="label">Airflow</span><small>${desc}</small></div>
+      <div class="air">${group('v')}${group('h')}</div>${actual}</div>`;
+  }
 
-    // ── Sleep: comfort_sleep toggle + cosy sleep curve (0-3) ─────────────────
-    if (this._present('comfort_sleep') || this._present('cosy_sleep_mode')) {
-      const parts = ['<div class="sheet-sec">Sleep</div>'];
-      if (this._present('comfort_sleep')) {
-        parts.push(toggleRow('comfort_sleep', EXTRAS_TOGGLE_META.comfort_sleep));
+  _comfortHtml(attrs, mode) {
+    const isCool = mode === 'cool';
+    const presets = attrs.preset_modes || [];
+    const preset = attrs.preset_mode || 'none';
+    const chips = [];
+    for (const [id, icon, lbl] of [['sleep', 'preset_sleep', 'Sleep'], ['boost', 'preset_boost', 'Boost'], ['away', 'preset_away', 'Away']]) {
+      if (!presets.includes(id)) continue;
+      chips.push(`<button class="chipbtn${preset === id ? ' on' : ''}" data-action="toggle-preset" data-val="${id}">${iconSvg(icon, 17)}${lbl}</button>`);
+    }
+    let coolOnly = false;
+    const brz = (key, icon, lbl, action) => {
+      const ent = this._entity(key);
+      if (!ent) return;
+      coolOnly = true;
+      const on = isCool && !isUnavail(ent) && ent.state === 'on';
+      const dis = !isCool || isUnavail(ent);
+      chips.push(`<button class="chipbtn${on ? ' on' : ''}" ${dis ? 'disabled' : ''} data-action="${on ? 'set-breeze-normal' : action}">${iconSvg(icon, 17)}${lbl}</button>`);
+    };
+    brz('breeze_away', 'breeze_away', 'Breeze away', 'set-breeze-away');
+    brz('breezeless', 'breeze_less', 'Breezeless', 'set-breezeless');
+    const rate = this._entity('rate_select');
+    if (rate) {
+      coolOnly = true;
+      const dis = !isCool || isUnavail(rate);
+      for (const [v, l] of [['gear_75', 'Rate 75%'], ['gear_50', 'Rate 50%']]) {
+        const on = !dis && rate.state === v;
+        chips.push(`<button class="chipbtn${on ? ' on' : ''}" ${dis ? 'disabled' : ''} data-action="set-rate" data-val="${on ? 'off' : v}">${ico('mdi:gauge')}${l}</button>`);
       }
-      if (this._present('cosy_sleep_mode')) {
-        const cmEnt = this._entity('cosy_sleep_mode');
-        const cmUnavail = isUnavail(cmEnt);
-        const cmVal = cmUnavail ? -1 : Math.round(+cmEnt.state);
-        const curvePills = ['Off', '1', '2', '3'].map((lbl, i) =>
-          `<button class="pill${cmVal === i ? ' active' : ''}${cmUnavail ? ' unavail' : ''}"
-                   data-action="set-cosy-curve" data-val="${i}">${lbl}</button>`).join('');
-        parts.push(`
-        <div class="louver-axis-lbl" style="margin-top:8px">Sleep curve</div>
-        ${cmUnavail ? '<p class="no-items">Unavailable — turn on AC first</p>' : `<div class="pill-row">${curvePills}</div>`}`);
-      }
-      sections.push(parts.join(''));
     }
+    if (!chips.length) return '';
+    return `<div class="blk"><div class="bh"><span class="label">Comfort</span>${coolOnly && !isCool ? '<small>Breeze and output rate work in Cool only</small>' : ''}</div>
+      <div class="chips">${chips.join('')}</div></div>`;
+  }
 
-    // ── Comfort toggles ──────────────────────────────────────────────────────
-    const rowKeys = ['night_light', 'pmv', 'power_save', 'low_frequency_fan',
-                     'ventilation', 'anti_cold', 'diy', 'smart_eye'];
-    const rows = rowKeys
-      .filter(k => this._present(k))
-      .map(k => toggleRow(k, EXTRAS_TOGGLE_META[k]))
-      .join('');
-    if (rows) sections.push(`<div class="sheet-sec">Comfort</div>${rows}`);
+  _togHtml({ icon, name, desc, on, dis, action, entity, val }) {
+    return `<button class="tog${on ? ' on' : ''}" ${dis ? 'disabled' : ''} data-action="${action}"${entity ? ` data-entity="${entity}"` : ''}${val ? ` data-val="${val}"` : ''}>
+      <span class="t1">${ico(icon)}<span class="sx"></span></span>
+      <span><b>${name}</b>${desc ? `<small>${desc}</small>` : ''}</span></button>`;
+  }
 
-    // ── Filter maintenance: reset buttons ────────────────────────────────────
-    const fbtns = [];
-    if (this._present('reset_filter')) {
-      fbtns.push(`<button class="pill" data-action="press-button"
-                          data-entity="${cfg.reset_filter}">Reset filter</button>`);
+  _togglesHtml(attrs) {
+    const cfg = this._config;
+    const items = [];
+    if ((attrs.preset_modes || []).includes('eco')) {
+      items.push(this._togHtml({ icon: 'mdi:leaf', name: 'iECO', desc: 'Saves energy', on: attrs.preset_mode === 'eco', action: 'toggle-preset', val: 'eco' }));
     }
-    if (this._present('reset_fresh_air_filter')) {
-      fbtns.push(`<button class="pill" data-action="press-button"
-                          data-entity="${cfg.reset_fresh_air_filter}">Reset fresh-air filter</button>`);
+    for (const [key, icon, name, desc] of [
+      ['display', 'mdi:monitor-small', 'Display', 'Unit LEDs'],
+      ['purifier', 'mdi:air-purifier', 'Purifier', 'Ionizer'],
+      ['flash', 'mdi:rocket-launch-outline', 'Flash', 'Rapid cool / heat'],
+    ]) {
+      const ent = this._entity(key);
+      if (!ent) continue;
+      const un = isUnavail(ent);
+      items.push(this._togHtml({ icon, name, desc: un ? 'Needs the AC on' : desc, on: !un && ent.state === 'on', dis: un, action: 'toggle-switch', entity: cfg[key] }));
     }
-    if (fbtns.length) {
-      sections.push(`<div class="sheet-sec">Filter Maintenance</div><div class="pill-row">${fbtns.join('')}</div>`);
-    }
+    return items.length ? `<div class="tg">${items.join('')}</div>` : '';
+  }
 
-    return sections.join('') || '<p class="no-items">No extra features available.</p>';
+  _timerHtml(acOff) {
+    const key = acOff ? 'power_on_timer' : 'power_off_timer';
+    const ent = this._entity(key);
+    if (!ent) return '';
+    const cur = timerMinutes(ent);
+    const action = acOff ? 'set-on-timer' : 'set-off-timer';
+    const chips = TIMER_PRESETS.map(m => {
+      const on = m === 0 ? cur <= 0 : Math.round(cur) === m;
+      return `<button class="chipbtn${on ? ' on' : ''}" data-action="${action}" data-val="${m}">${m === 0 ? 'Off' : fmtDuration(m)}</button>`;
+    }).join('');
+    const label = acOff ? 'Turn on in' : 'Turn off in';
+    const now = cur > 0 ? `${acOff ? 'Turns on' : 'Turns off'} in ${fmtDuration(cur)}` : 'No timer';
+    return `<div class="blk"><div class="bh"><span class="label">${label}</span><small>${now}</small></div><div class="chips">${chips}</div></div>`;
+  }
+
+  _extrasHtml() {
+    if (!EXTRAS_KEYS.some(k => this._present(k))) return '';
+    const cfg = this._config;
+    const active = EXTRAS_TOGGLE_KEYS.filter(k => this._entity(k)?.state === 'on').length;
+    const togs = EXTRAS_TOGGLE_KEYS.filter(k => this._present(k)).map(k => {
+      const ent = this._entity(k), un = isUnavail(ent), meta = EXTRAS_TOGGLE_META[k];
+      return this._togHtml({ icon: EXTRAS_ICONS[k], name: meta.name, desc: un ? 'Needs the AC on' : meta.desc, on: !un && ent.state === 'on', dis: un, action: 'toggle-switch', entity: cfg[k] });
+    }).join('');
+    const parts = [];
+    if (togs) parts.push(`<div class="tg">${togs}</div>`);
+    const sp = this._entity('fresh_air_fan_speed');
+    if (sp) {
+      const un = isUnavail(sp), faOn = this._entity('fresh_air')?.state === 'on';
+      const v = un ? 50 : Math.min(Math.round(+sp.state), 100);
+      parts.push(`<label class="range">Fresh air speed <input type="range" id="fresh-air-slider" min="${sp.attributes?.min ?? 1}" max="${sp.attributes?.max ?? 100}" value="${v}" ${un || !faOn ? 'disabled' : ''}><b id="fresh-air-val">${un ? '—' : v + '%'}</b></label>`);
+    }
+    const cm = this._entity('cosy_sleep_mode');
+    if (cm) {
+      const un = isUnavail(cm), val = un ? -1 : Math.round(+cm.state);
+      parts.push(`<div><div class="label" style="margin:0 0 8px 2px">Sleep curve</div><div class="seg sm">${['Off', '1', '2', '3'].map((l, i) =>
+        `<button class="${val === i ? 'on' : ''}" ${un ? 'disabled' : ''} data-action="set-cosy-curve" data-val="${i}">${l}</button>`).join('')}</div></div>`);
+    }
+    const resets = [['reset_filter', 'Reset filter'], ['reset_fresh_air_filter', 'Reset fresh-air filter']]
+      .filter(([k]) => this._present(k))
+      .map(([k, l]) => `<button class="chipbtn" data-action="press-button" data-entity="${cfg[k]}">${ico('mdi:air-filter')}${l}</button>`).join('');
+    if (resets) parts.push(`<div class="chips">${resets}</div>`);
+    return `<details data-k="extras" ${this._open.has('extras') ? 'open' : ''}>
+      <summary>${ico('mdi:tune-variant')}More comfort<small>${active ? `${active} on` : ''}</small><ha-icon class="chev" icon="mdi:chevron-down"></ha-icon></summary>
+      <div class="dc">${parts.join('')}</div></details>`;
+  }
+
+  _diagHtml() {
+    if (!DIAG_KEYS.some(k => this._present(k))) return '';
+    const summary = [this._fmtSensor('outdoor_unit_power'), this._fmtSensor('compressor_frequency')].filter(Boolean).join(' · ');
+    const secs = DIAG_SECTIONS.map(sec => {
+      const rows = sec.rows.filter(r => this._present(r.key))
+        .map(r => `<div><span>${r.name}</span><b>${this._fmtSensor(r.key) ?? '—'}</b></div>`).join('');
+      return rows ? `<div class="label" style="margin:4px 0 0 2px">${sec.title}</div><div class="diag">${rows}</div>` : '';
+    }).join('');
+    return `<details data-k="diag" ${this._open.has('diag') ? 'open' : ''}>
+      <summary>${ico('mdi:chart-line')}Diagnostics<small>${summary}</small><ha-icon class="chev" icon="mdi:chevron-down"></ha-icon></summary>
+      <div class="dc">${secs}</div></details>`;
   }
 
   /**
@@ -1857,25 +1029,7 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     return unit ? `${disp} ${unit}` : `${disp}`;
   }
 
-  _diagSheetHtml() {
-    const sections = [];
-    for (const sec of DIAG_SECTIONS) {
-      const rows = sec.rows
-        .filter(r => this._present(r.key))
-        .map(r => `
-        <div class="diag-row">
-          <span class="diag-lbl">${r.name}</span>
-          <span class="diag-val">${this._fmtSensor(r.key) ?? '—'}</span>
-        </div>`)
-        .join('');
-      if (rows) sections.push(`<div class="sheet-sec">${sec.title}</div><div class="diag-grid">${rows}</div>`);
-    }
-    return sections.join('') ||
-      '<p class="no-items">Enable the integration&#39;s diagnostic sensors to see live data here.</p>';
-  }
-
   // ── Dial drag ────────────────────────────────────────────────────────────
-
   _bindDialEvents(svg) {
     svg.addEventListener('pointerdown', e => {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -1887,301 +1041,197 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
       this._dragging = true;
       this._applyDialPoint(e, svg);
     });
-
-    svg.addEventListener('pointermove', e => {
-      if (!this._dragging) return;
-      this._applyDialPoint(e, svg);
-    });
-
-    const endDrag = e => {
+    svg.addEventListener('pointermove', e => { if (this._dragging) this._applyDialPoint(e, svg); });
+    const end = () => {
       if (!this._dragging) return;
       this._dragging = false;
       svg.classList.remove('dragging');
       if (this._dragTemp != null) {
-        const climate = this._hass.states[this._config.entity];
-        this._call('climate', 'set_temperature', {
-          entity_id: climate.entity_id,
-          temperature: this._dragTemp,
-        });
+        this._call('climate', 'set_temperature', { entity_id: this._config.entity, temperature: this._dragTemp });
         this._dragTemp = null;
       }
     };
-    svg.addEventListener('pointerup',     endDrag);
-    svg.addEventListener('pointercancel', endDrag);
+    svg.addEventListener('pointerup', end);
+    svg.addEventListener('pointercancel', end);
   }
 
   _applyDialPoint(e, svg) {
-    const rect  = svg.getBoundingClientRect();
-    const CX = 100, CY = 90;
-    // Convert screen → SVG viewBox coordinates
-    const px = (e.clientX - rect.left) * (200 / rect.width);
-    const py = (e.clientY - rect.top)  * (155 / rect.height);
-    // Angle 0° = top, increases clockwise
-    let deg = Math.atan2(px - CX, -(py - CY)) * 180 / Math.PI;
+    const { CX, CY, START, SWEEP, W, H } = DIAL;
+    const rect = svg.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    let deg = Math.atan2(px - CX, -(py - CY)) * 180 / Math.PI;   // 0° = top, clockwise
     if (deg < 0) deg += 360;
-
-    // Arc runs 240° → 480° (through 0°). Gap zone: [120°, 240°].
-    if (deg >= 120 && deg < 240) return;
-    const norm = deg < 120 ? deg + 360 : deg;  // [240, 480]
-    const frac = Math.max(0, Math.min(1, (norm - 240) / 240));
-
+    const gapEnd = START, gapStart = (START + SWEEP) % 360;       // 135° → 225° is the open bottom
+    if (deg > gapStart && deg < gapEnd) return;
+    const norm = deg >= START ? deg - START : deg + (360 - START);
+    const frac = Math.max(0, Math.min(1, norm / SWEEP));
     const attrs = this._hass.states[this._config.entity].attributes;
-    const minT  = attrs.min_temp || 16;
-    const maxT  = attrs.max_temp || 30;
-    const temp  = Math.round((minT + frac * (maxT - minT)) * 2) / 2;
-
+    const minT = attrs.min_temp || 16, maxT = attrs.max_temp || 30;
+    const temp = Math.round((minT + frac * (maxT - minT)) * 2) / 2;
     if (temp === this._dragTemp) return;
     this._dragTemp = temp;
     this._updateDialArc(temp);
   }
 
   _updateDialArc(temp) {
-    const s      = this.shadowRoot;
-    const fillEl   = s.getElementById('arc-fill');
-    const handleEl = s.getElementById('arc-handle');
-    const valEl    = s.getElementById('arc-temp-val');
-    if (!fillEl || !handleEl) return;
-
-    const attrs  = this._hass.states[this._config.entity].attributes;
-    const minT   = attrs.min_temp || 16;
-    const maxT   = attrs.max_temp || 30;
-    const frac   = Math.max(0, Math.min(1, (temp - minT) / (maxT - minT)));
-    const CX = 100, CY = 90, R = 76;
-    const ARC_START = 240, ARC_SWEEP = 240;
-    const fillSweep = frac * ARC_SWEEP;
-    const fp = fillSweep > 0.5 ? arcD(CX, CY, R, ARC_START, fillSweep) : '';
-
-    if (fp) {
-      fillEl.setAttribute('d', fp);
-      fillEl.style.display = '';
-    } else {
-      fillEl.style.display = 'none';
-    }
-    const [hx, hy] = pt(CX, CY, R, ARC_START + (fillSweep < 0.5 ? 0 : fillSweep));
-    handleEl.setAttribute('cx', String(hx));
-    handleEl.setAttribute('cy', String(hy));
-
-    if (valEl) {
-      valEl.textContent = Number.isInteger(temp * 10)
-        ? temp.toFixed(1)
-        : temp.toFixed(1);
-    }
+    const s = this.shadowRoot;
+    const { CX, CY, R, START, SWEEP } = DIAL;
+    const attrs = this._hass.states[this._config.entity].attributes;
+    const minT = attrs.min_temp || 16, maxT = attrs.max_temp || 30;
+    const frac = Math.max(0, Math.min(1, (temp - minT) / (maxT - minT)));
+    const end = frac * SWEEP;
+    const mc = MODE_COLORS[this._hass.states[this._config.entity].state] || MODE_COLORS.off;
+    const fill = s.getElementById('arc-fill');
+    if (fill) { fill.setAttribute('d', arcD(CX, CY, R, START, end)); fill.style.display = end < 0.5 ? 'none' : ''; }
+    const [hx, hy] = pt(CX, CY, R, START + end);
+    s.getElementById('arc-handle')?.setAttribute('cx', hx);
+    s.getElementById('arc-handle')?.setAttribute('cy', hy);
+    s.querySelectorAll('.tk').forEach(t => {
+      const lit = +t.dataset.f * SWEEP <= end + 0.01;
+      t.setAttribute('stroke', lit ? mc : 'rgba(255,255,255,.14)');
+      t.setAttribute('opacity', lit ? .8 : 1);
+    });
+    const v = s.getElementById('arc-temp-val');
+    if (v) v.textContent = fmtT(temp);
   }
 
-  // ── Sheet management ──────────────────────────────────────────────────────
-
-  _openSheet(name) {
-    this._sheet = name;
-    const s = this.shadowRoot;
-    const sheet   = s.querySelector(`.sheet[data-sheet="${name}"]`);
-    const overlay = s.getElementById('overlay');
-    sheet?.classList.add('open');
-    overlay?.classList.add('open');
-
-    // After the sheet animates in, scroll the page so the sheet bottom sits at
-    // the bottom of the viewport — but only when the sheet isn't fully visible.
-    if (sheet) {
-      // Wait for the CSS transition to finish (sheet slides up in ~300 ms).
-      // Use a one-shot flag so we never scroll on the close transition.
-      const onTransitionEnd = (ev) => {
-        // Only act on the transform transition of the opening animation
-        if (ev.propertyName !== 'transform') return;
-        sheet.removeEventListener('transitionend', onTransitionEnd);
-
-        // Guard: if the sheet is no longer open by the time this fires, bail
-        if (!sheet.classList.contains('open')) return;
-
-        const rect     = sheet.getBoundingClientRect();
-        const vpBottom = window.innerHeight;
-        if (rect.top >= 0 && rect.bottom <= vpBottom) return; // fully visible
-
-        const scrollBy = rect.bottom - vpBottom;
-        if (scrollBy > 0) {
-          window.scrollBy({ top: scrollBy, behavior: 'smooth' });
-        }
-      };
-      sheet.addEventListener('transitionend', onTransitionEnd);
-    }
+  // ── Fan bars drag ────────────────────────────────────────────────────────
+  _bindFanEvents(bars) {
+    let pct = null;
+    const at = e => {
+      const r = bars.getBoundingClientRect();
+      return Math.max(1, Math.min(100, Math.round((e.clientX - r.left) / r.width * 100)));
+    };
+    const show = p => {
+      bars.querySelectorAll('span').forEach((b, i) => b.classList.toggle('on', (i + 1) * 10 <= p + 5));
+      bars.classList.remove('auto');
+      const lbl = this.shadowRoot.getElementById('fan-lbl');
+      if (lbl) lbl.textContent = `${p}%`;
+    };
+    bars.addEventListener('pointerdown', e => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      e.preventDefault();
+      bars.setPointerCapture(e.pointerId);
+      this._dragging = true;
+      pct = at(e); show(pct);
+    });
+    bars.addEventListener('pointermove', e => { if (this._dragging && pct != null) { pct = at(e); show(pct); } });
+    const end = () => {
+      if (pct == null) return;
+      this._dragging = false;
+      this._setFanPct(pct);
+      pct = null;
+    };
+    bars.addEventListener('pointerup', end);
+    bars.addEventListener('pointercancel', end);
   }
 
-  _closeSheet() {
-    this._sheet = null;
-    const s = this.shadowRoot;
-    s.querySelectorAll('.sheet.open').forEach(el => el.classList.remove('open'));
-    s.getElementById('overlay')?.classList.remove('open');
+  _setFanPct(pct) {
+    const climate = this._hass.states[this._config.entity];
+    const attrs = climate.attributes;
+    const named = this._fanModesNamed(attrs);
+    const nearest = named[Math.max(0, Math.ceil(pct / 100 * named.length) - 1)];
+    const fs = this._entity('fan_speed');
+    if (fs && !isUnavail(fs)) {
+      // Leave Auto first, then set the exact speed.
+      if (attrs.fan_mode === 'auto' && nearest) this._call('climate', 'set_fan_mode', { entity_id: climate.entity_id, fan_mode: nearest });
+      const lo = fs.attributes?.min ?? 1, hi = fs.attributes?.max ?? 100;
+      this._call('number', 'set_value', { entity_id: fs.entity_id, value: Math.max(lo, Math.min(hi, pct)) });
+    } else if (nearest) {
+      this._call('climate', 'set_fan_mode', { entity_id: climate.entity_id, fan_mode: nearest });
+    }
   }
 
   // ── Click handling ────────────────────────────────────────────────────────
-
   _onClick(e) {
-    // Find the closest ancestor in the composed path that has a data-action
-    const actionEl = e.composedPath().find(
-      el => el instanceof Element && el.dataset?.action
-    );
-    if (!actionEl) {
-      // Tapping the overlay closes the sheet
-      if (e.composedPath().includes(this.shadowRoot.getElementById('overlay'))) {
-        this._closeSheet();
-      }
-      return;
-    }
-
-    const action = actionEl.dataset.action;
-    const val    = actionEl.dataset.val;
-    const eid    = actionEl.dataset.entity;
-
+    const el = e.composedPath().find(n => n instanceof Element && n.dataset?.action);
+    if (!el || el.disabled) return;
+    const action = el.dataset.action, val = el.dataset.val, eid = el.dataset.entity;
     const { _hass: hass, _config: cfg } = this;
     const climate = hass.states[cfg.entity];
-    const cid     = climate.entity_id;
-    const attrs   = climate.attributes;
+    if (!climate) return;
+    const cid = climate.entity_id;
+    const attrs = climate.attributes;
 
     switch (action) {
-      // ── Navigation ──────────────────────────────────────────────────────
-      case 'open-mode':    this._openSheet('mode');    return;
-      case 'open-fan':     this._openSheet('fan');     return;
-      case 'open-airflow': this._openSheet('airflow'); return;
-      case 'open-breeze':  this._openSheet('breeze');  return;
-      case 'open-timer-on':  this._openSheet('timer-on');  return;
-      case 'open-timer-off': this._openSheet('timer-off'); return;
-      case 'open-extras':    this._openSheet('extras');    return;
-      case 'open-diag':      this._openSheet('diag');      return;
-
-      // ── Temperature ──────────────────────────────────────────────────────
       case 'temp-up':
-        this._call('climate', 'set_temperature', {
-          entity_id: cid,
-          temperature: +((attrs.temperature || 22) + 0.5).toFixed(1),
-        }); break;
-      case 'temp-down':
-        this._call('climate', 'set_temperature', {
-          entity_id: cid,
-          temperature: +((attrs.temperature || 22) - 0.5).toFixed(1),
-        }); break;
-
-      // ── Self-clean ───────────────────────────────────────────────────────
+      case 'temp-down': {
+        const step = action === 'temp-up' ? 0.5 : -0.5;
+        const minT = attrs.min_temp || 16, maxT = attrs.max_temp || 30;
+        const t = Math.max(minT, Math.min(maxT, +((attrs.temperature || 22) + step).toFixed(1)));
+        this._updateDialArc(t);
+        this._call('climate', 'set_temperature', { entity_id: cid, temperature: t });
+        break;
+      }
       case 'start-self-clean':
-        if (cfg.self_clean_btn) {
-          this._call('button', 'press', { entity_id: cfg.self_clean_btn });
-        }
+        if (this._present('self_clean_btn')) this._call('button', 'press', { entity_id: cfg.self_clean_btn });
         break;
-
-      // ── Power ────────────────────────────────────────────────────────────
       case 'toggle-power':
-        if (climate.state === 'off') {
-          this._call('climate', 'turn_on', { entity_id: cid });
-        } else {
-          this._call('climate', 'turn_off', { entity_id: cid });
-        }
+        this._call('climate', climate.state === 'off' ? 'turn_on' : 'turn_off', { entity_id: cid });
         break;
-
-      // ── Mode sheet ────────────────────────────────────────────────────────
       case 'set-hvac-mode':
         this._call('climate', 'set_hvac_mode', { entity_id: cid, hvac_mode: val });
-        this._closeSheet();
         break;
-
-      // ── Fan sheet ─────────────────────────────────────────────────────────
       case 'toggle-fan-auto': {
-        let newFan;
-        if (attrs.fan_mode === 'auto') {
-          // Pick the first non-auto, non-custom mode available; fall back to 'medium'
-          const fanModes = attrs.fan_modes || [];
-          newFan = fanModes.find(m => m !== 'auto' && m !== 'custom') || 'medium';
-        } else {
-          newFan = 'auto';
-        }
-        this._call('climate', 'set_fan_mode', { entity_id: cid, fan_mode: newFan });
+        const next = attrs.fan_mode === 'auto'
+          ? ((attrs.fan_modes || []).find(m => m !== 'auto' && m !== 'custom') || 'medium')
+          : 'auto';
+        this._call('climate', 'set_fan_mode', { entity_id: cid, fan_mode: next });
         break;
       }
-
-      // ── Airflow sheet ─────────────────────────────────────────────────────
-      case 'toggle-osc-h': {
-        const sm = attrs.swing_mode || 'off';
-        const swingModes = attrs.swing_modes || [];
-        const canBoth = swingModes.includes('both');
-        // Toggle H axis; combine with current V state if device supports 'both'
-        let next;
-        if (sm === 'horizontal')      next = 'off';
-        else if (sm === 'both')       next = swingModes.includes('vertical') ? 'vertical' : 'off';
-        else if (sm === 'vertical')   next = canBoth ? 'both' : 'horizontal';
-        else                          next = 'horizontal';
-        this._call('climate', 'set_swing_mode', { entity_id: cid, swing_mode: next });
-        break;
-      }
+      case 'toggle-osc-h':
       case 'toggle-osc-v': {
+        const h = action === 'toggle-osc-h';
         const sm = attrs.swing_mode || 'off';
-        const swingModes = attrs.swing_modes || [];
-        const canBoth = swingModes.includes('both');
+        const modes = attrs.swing_modes || [];
+        const canBoth = modes.includes('both');
+        const self = h ? 'horizontal' : 'vertical', other = h ? 'vertical' : 'horizontal';
         let next;
-        if (sm === 'vertical')        next = 'off';
-        else if (sm === 'both')       next = swingModes.includes('horizontal') ? 'horizontal' : 'off';
-        else if (sm === 'horizontal') next = canBoth ? 'both' : 'vertical';
-        else                          next = 'vertical';
+        if (sm === self) next = 'off';
+        else if (sm === 'both') next = modes.includes(other) ? other : 'off';
+        else if (sm === other) next = canBoth ? 'both' : self;
+        else next = self;
         this._call('climate', 'set_swing_mode', { entity_id: cid, swing_mode: next });
         break;
       }
-      case 'set-h-angle':
-        if (cfg.swing_h_angle)
-          this._call('select', 'select_option', { entity_id: cfg.swing_h_angle, option: val });
+      case 'set-h-angle': case 'set-h-off':
+        if (cfg.swing_h_angle) this._call('select', 'select_option', { entity_id: cfg.swing_h_angle, option: action === 'set-h-off' ? 'off' : val });
         break;
-      case 'set-h-off':
-        if (cfg.swing_h_angle)
-          this._call('select', 'select_option', { entity_id: cfg.swing_h_angle, option: 'off' });
+      case 'set-v-angle': case 'set-v-off':
+        if (cfg.swing_v_angle) this._call('select', 'select_option', { entity_id: cfg.swing_v_angle, option: action === 'set-v-off' ? 'off' : val });
         break;
-      case 'set-v-angle':
-        if (cfg.swing_v_angle)
-          this._call('select', 'select_option', { entity_id: cfg.swing_v_angle, option: val });
-        break;
-      case 'set-v-off':
-        if (cfg.swing_v_angle)
-          this._call('select', 'select_option', { entity_id: cfg.swing_v_angle, option: 'off' });
-        break;
-
-      // ── Breeze sheet ──────────────────────────────────────────────────────
       case 'set-breeze-normal':
-        if (cfg.breeze_away) this._call('switch', 'turn_off', { entity_id: cfg.breeze_away });
-        if (cfg.breezeless)  this._call('switch', 'turn_off', { entity_id: cfg.breezeless });
+        if (this._present('breeze_away')) this._call('switch', 'turn_off', { entity_id: cfg.breeze_away });
+        if (this._present('breezeless'))  this._call('switch', 'turn_off', { entity_id: cfg.breezeless });
         break;
       case 'set-breeze-away':
-        if (cfg.breeze_away) this._call('switch', 'turn_on',  { entity_id: cfg.breeze_away });
-        if (cfg.breezeless)  this._call('switch', 'turn_off', { entity_id: cfg.breezeless });
+        this._call('switch', 'turn_on', { entity_id: cfg.breeze_away });
+        if (this._present('breezeless')) this._call('switch', 'turn_off', { entity_id: cfg.breezeless });
         break;
       case 'set-breezeless':
-        if (cfg.breezeless)  this._call('switch', 'turn_on',  { entity_id: cfg.breezeless });
-        if (cfg.breeze_away) this._call('switch', 'turn_off', { entity_id: cfg.breeze_away });
+        this._call('switch', 'turn_on', { entity_id: cfg.breezeless });
+        if (this._present('breeze_away')) this._call('switch', 'turn_off', { entity_id: cfg.breeze_away });
         break;
       case 'set-rate':
-        if (cfg.rate_select)
-          this._call('select', 'select_option', { entity_id: cfg.rate_select, option: val });
+        this._call('select', 'select_option', { entity_id: cfg.rate_select, option: val });
         break;
-
-      // ── Timer sheet (mirror the mode sheet: set value, then close) ──────────
       case 'set-on-timer':
-        if (cfg.power_on_timer)
-          this._call('number', 'set_value', { entity_id: cfg.power_on_timer, value: +val });
-        this._closeSheet();
+        this._call('number', 'set_value', { entity_id: cfg.power_on_timer, value: +val });
         break;
       case 'set-off-timer':
-        if (cfg.power_off_timer)
-          this._call('number', 'set_value', { entity_id: cfg.power_off_timer, value: +val });
-        this._closeSheet();
+        this._call('number', 'set_value', { entity_id: cfg.power_off_timer, value: +val });
         break;
-
-      // ── Feature rows ──────────────────────────────────────────────────────
       case 'toggle-preset': {
-        const cur  = attrs.preset_mode || 'none';
-        const next = cur === val ? 'none' : val;
+        const next = (attrs.preset_mode || 'none') === val ? 'none' : val;
         this._call('climate', 'set_preset_mode', { entity_id: cid, preset_mode: next });
         break;
       }
       case 'toggle-switch':
         this._call('switch', 'toggle', { entity_id: eid });
         break;
-
-      // ── Comfort & Extras sheet ─────────────────────────────────────────────
       case 'set-cosy-curve':
-        if (cfg.cosy_sleep_mode)
-          this._call('number', 'set_value', { entity_id: cfg.cosy_sleep_mode, value: +val });
+        this._call('number', 'set_value', { entity_id: cfg.cosy_sleep_mode, value: +val });
         break;
       case 'press-button':
         if (eid) this._call('button', 'press', { entity_id: eid });
@@ -2189,44 +1239,22 @@ input[type=range]:disabled { opacity: .4; cursor: default; }
     }
   }
 
-  // ── Input handling (fan speed slider) ────────────────────────────────────
-
+  // ── Fresh-air speed slider ────────────────────────────────────────────────
   _onInput(e) {
-    // Map slider id -> { label element id, target entity config key }
-    const sliders = {
-      'fan-slider':        { labelId: 'fan-val',        entityKey: 'fan_speed' },
-      'fresh-air-slider':  { labelId: 'fresh-air-val',  entityKey: 'fresh_air_fan_speed' },
-    };
-    const slider = sliders[e.target.id];
-    if (!slider) return;
-
+    if (e.target.id !== 'fresh-air-slider') return;
     const v = e.target.value;
-    const label = this.shadowRoot.getElementById(slider.labelId);
-    if (label) label.textContent = v + '%';
-
-    // Debounce: only call service 400 ms after user stops moving the slider
+    const lbl = this.shadowRoot.getElementById('fresh-air-val');
+    if (lbl) lbl.textContent = v + '%';
     clearTimeout(this._fanTimer);
     this._fanTimer = setTimeout(() => {
-      const entityId = this._config[slider.entityKey];
-      if (entityId)
-        this._call('number', 'set_value', { entity_id: entityId, value: +v });
+      this._call('number', 'set_value', { entity_id: this._config.fresh_air_fan_speed, value: +v });
     }, 400);
   }
-
-  // ── Service call wrapper ─────────────────────────────────────────────────
 
   _call(domain, service, data) {
     this._hass.callService(domain, service, data);
   }
 }
 
-// ── Register ──────────────────────────────────────────────────────────────────
 customElements.define(CARD_TAG, AcCard);
-
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type:        CARD_TAG,
-  name:        'Midea AC Card',
-  description: 'Full-featured climate card inspired by the Midea app — thermostat dial, airflow with louver SVGs, breeze modes, presets.',
-  preview:     true,
-});
+console.info(`%c MIDEA-AC-CARD %c ${VERSION} `, 'background:#3fa9ff;color:#fff;font-weight:700', 'background:#1d222c;color:#fff');

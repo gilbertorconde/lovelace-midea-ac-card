@@ -6,54 +6,53 @@
 
 Key features at a glance:
 
-- **Draggable semicircular thermostat arc** — drag the handle or tap +/− to set the target temperature in 0.5 °C steps; arc colour follows the active HVAC mode.
-- **Stats bar** — outdoor temperature, indoor temperature, and humidity (all optional; auto-derived from the entity name).
-- **2 × 2 tile grid** — Mode, Fan Speed, Airflow, and Breeze & Presets tiles; each opens a bottom-sheet panel that auto-scrolls into view when needed.
-- **Mode sheet** — one button per HVAC mode with inline SVG icons; mode list is read dynamically from `hvac_modes`.
-- **Fan Speed sheet** — Auto toggle + numeric slider (0–100 %) linked to a companion `number` entity.
-- **Airflow sheet** — Up/Down and Left/Right oscillation pills; two rows of 5 louver-position buttons with inline SVG indicators showing the active position in the mode accent colour. Angle selectors are disabled while the corresponding oscillation axis is active.
-- **Breeze & Presets sheet** — Breeze-mode pills (Normal / Breeze Away / Breezeless), Output Rate pills (Full / 75 % / 50 %), and preset-mode pills (Sleep / Boost / Away); all with inline SVG icons. Breeze and rate controls are available in Cool mode only and are automatically greyed out otherwise.
-- **Feature rows** — iECO toggle (uses the `eco` preset), LED Display switch, Purifier switch.
-- **Self-clean button** — small pill in the header that triggers self-clean; pulses while cleaning is in progress (works even while the AC is off).
-- **Power button** — prominent power button at the bottom; remembers the last active mode on power-on.
-- **Mode-adaptive accent colour** — a single CSS custom property (`--mode-color`) drives all accents; adapts automatically to Cool / Heat / Dry / Fan / Auto / Off.
+- **One page, any width** — two columns when the card is at least 660 px wide (e.g. in a dialog), one scrolling column on a phone. No bottom sheets.
+- **270° thermostat dial** — drag the handle or use the +/− buttons under it (0.5 °C steps); arc, ticks and glow follow the HVAC mode colour.
+- **Stats** — outdoor and indoor temperature, humidity and power draw (each shown only when available).
+- **Mode control** — one segment per HVAC mode from `hvac_modes`, in a fixed natural order.
+- **Fan bars** — drag or tap for an exact % via the `fan_speed` number entity, or the nearest fan mode without it; Auto chip.
+- **Airflow** — up/down and left/right louver groups, each with its own swing toggle; tap the active position again to release it. Shows the actual louver angles when the diagnostic sensors are enabled.
+- **Comfort chips** — Sleep / Boost / Away presets, Breeze away / Breezeless and output rate (Cool only, greyed out otherwise).
+- **Toggles** — iECO (the `eco` preset), Display, Purifier, Flash.
+- **Timers** — "Turn off in" while running, "Turn on in" while off.
+- **Off state** — room temperature plus one-tap starts for each mode; the power button resumes the last mode.
+- **Header** — filter and water-tank alerts, self-clean button (pulses while cleaning, works while off), power button.
+- **More comfort / Diagnostics** — expandable sections that appear only for the extended entities you enabled.
 - **Zero external dependencies** — single vanilla-JS file, no HACS frontend card required.
 - **Auto-derived companion entities** — companion entity IDs are generated automatically from the climate entity name; only override the ones that differ.
 
 ## Screenshots
 
-<table>
-<tr>
-  <td align="center"><b>Off</b></td>
-  <td align="center"><b>Cool mode</b></td>
-  <td align="center"><b>Heat mode</b></td>
-</tr>
-<tr>
-  <td><img src="docs/screenshot-off.png" width="160"/></td>
-  <td><img src="docs/screenshot-cool.png" width="160"/></td>
-  <td><img src="docs/screenshot-heat.png" width="160"/></td>
-</tr>
-<tr>
-  <td align="center"><b>Mode sheet</b></td>
-  <td align="center"><b>Fan Speed sheet</b></td>
-  <td align="center"><b>Airflow sheet</b></td>
-</tr>
-<tr>
-  <td><img src="docs/screenshot-mode-sheet.png" width="160"/></td>
-  <td><img src="docs/screenshot-fan-sheet.png" width="160"/></td>
-  <td><img src="docs/screenshot-airflow-sheet.png" width="160"/></td>
-</tr>
-</table>
+**Wide (e.g. in a dialog), heating**
+
+<img src="docs/v3-desktop-heat.png" width="640"/>
+
+**Wide, off: one-tap starts**
+
+<img src="docs/v3-desktop-off.png" width="640"/>
+
+**Phone width**
+
+<img src="docs/v3-phone-heat.png" width="260"/>
 
 ## Credits
 
 Author: [gil](https://github.com/condegil) — 2026  
-Version: 2.0.0
+Version: 3.0.0
 
 ## Changelog
 
 <details>
 <summary>Versions</summary>
+
+**3.0.0**  
+New dark "Home" design. Every control is on one page instead of bottom sheets: two columns when the card is at least 660 px wide (for example in a dialog), one scrolling column on a phone.
+270° dial in the mode colour with tick marks, +/− buttons in their own row under it, and outside / inside / humidity / power tiles.
+Fan speed is a bar control (drag or tap; exact % when the `fan_speed` number exists, otherwise the nearest fan mode) with an Auto chip.
+Up/down and left/right louver groups with their own swing toggle; tap the active position again to release it.
+Comfort chips for presets, breeze and output rate; iECO, Display, Purifier and Flash toggles; start/stop timer chips.
+When the AC is off, the dial is replaced by one-tap mode starts.
+"More comfort" and "Diagnostics" are expandable sections. Controls only appear for entities that exist.
 
 **2.0.0**  
 Complete rewrite as a self-contained vanilla-JS custom element.  
@@ -187,58 +186,35 @@ If a derived entity is not found in HA states the corresponding UI element is au
 ## UI layout
 
 ```
-┌──────────────────────────────────────────┐
-│  Living Room AC       [✦] ● Cool         │  ← header: name, self-clean pill, mode chip
-│                                          │
-│           ╭──────────────────╮           │
-│          ╱   ◉ (drag handle)  ╲          │  ← draggable SVG arc (track + mode fill)
-│   [−]   │       22.5 °C        │   [+]   │  ← +/− buttons
-│          ╲                    ╱          │
-│           ╰──────────────────╯           │
-│     ☁ 16.3°      🏠 23.2°      💧 48%    │  ← stats bar
-├──────────────────────────────────────────┤
-│  ┌────────────────┐ ┌────────────────┐   │
-│  │ Mode           │ │ Fan Speed      │   │  ← tiles (tap → bottom sheet)
-│  │ ❄ Cool         │ │ Auto        ⟳  │   │
-│  └────────────────┘ └────────────────┘   │
-│  ┌────────────────┐ ┌────────────────┐   │
-│  │ Airflow        │ │ Breeze & …     │   │
-│  │ H2 V3       ↗  │ │ 〰 💤          │   │
-│  └────────────────┘ └────────────────┘   │
-├──────────────────────────────────────────┤
-│  ♻  iECO   Improves efficiency    [●]    │  ← feature rows
-│  🖥  LED Display                   [○]    │
-│  🌿  Purifier                     [○]    │
-├──────────────────────────────────────────┤
-│                  [ ⏻ ]                   │  ← power button
-└──────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│ [icon] Living Room AC                [filter] [tank] [✦] [⏻]      │  header: alerts, self-clean, power
+│        Heating to 24.0° · fan auto                                │
+│ ┌──────────────────┐  MODE   [Cool][Heat][Dry][Fan][Auto]         │
+│ │   ╭──────────╮   │  FAN    ▁▂▃▄▅▆▇█  [Auto]                     │
+│ │  │  24.0 °C   │  │  AIRFLOW [Up/down ⇅ ·····] [Left/right ⇄ ···] │
+│ │   ╰─      ─╯    │  COMFORT [Sleep] [Boost] [Breezeless] [Rate…]  │
+│ │  [−]       [+]   │  [iECO] [Display] [Purifier] [Flash]          │
+│ │ out · in · % · W │  TURN OFF IN [Off][30m][1h]…                  │
+│ └──────────────────┘  ▸ More comfort   ▸ Diagnostics               │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-### Bottom sheets
-
-Each tile opens a panel that slides up from the bottom of the card. If the sheet is not fully visible, the page scrolls automatically to align the sheet bottom with the viewport bottom.
-
-| Sheet                | Contents                                                                                                                                                                                                                                                               |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Mode**             | One button per HVAC mode with inline SVG icon; list is read from `hvac_modes`. Active mode is highlighted.                                                                                                                                                             |
-| **Fan Speed**        | Auto toggle row; when Auto is off a range slider controls the `fan_speed` number entity (0–100 %).                                                                                                                                                                     |
-| **Airflow**          | Up/Down and Left/Right oscillation pills → `climate.set_swing_mode`. Two rows of 5 louver-position buttons with inline SVG icons; active position highlighted in mode colour. Rows are dimmed while the corresponding oscillation axis is active.                      |
-| **Breeze & Presets** | Breeze-mode pills (Normal / Breeze Away / Breezeless) and Output Rate pills (Full / 75 % / 50 %) — available in Cool mode only. Preset pills (Sleep / Boost / Away) — availability follows `preset_modes` from the climate entity. All pills include inline SVG icons. |
-
----
+Below 660 px of card width the right column stacks under the dial. When the AC
+is off, the left side shows the room temperature and the right side offers one
+tap starts for each HVAC mode plus the power-on timer.
 
 ## Mode colour theming
 
 | HVAC mode  | Accent colour      |
 | ---------- | ------------------ |
-| `cool`     | `#00a0e9` (blue)   |
-| `heat`     | `#ff8c00` (orange) |
-| `dry`      | `#00bcd4` (teal)   |
-| `fan_only` | `#43a047` (green)  |
-| `auto`     | `#7b1fa2` (purple) |
-| `off`      | `#757575` (grey)   |
+| `cool`     | `#3fa9ff` (blue)   |
+| `heat`     | `#ff7a45` (orange) |
+| `dry`      | `#f5c542` (yellow) |
+| `fan_only` | `#34d1a6` (green)  |
+| `auto`     | `#a78bfa` (violet) |
+| `off`      | `#8b93a3` (grey)   |
 
-The accent colour is applied to: thermostat arc fill, tile left-border, active pill buttons, feature-row toggle background, sheet active elements, and the fan-speed slider thumb.
+The accent colour is applied to: the dial arc, ticks and glow, the power button, the selected mode, the fan bars, active chips and louver positions, and switched-on toggles.
 
 ---
 
@@ -266,19 +242,9 @@ Preset availability is dynamic and depends on the current HVAC mode. The card re
 
 ---
 
-## Breeze & Presets tile
-
-The tile always shows the current state as icons side by side:
-
-- In Cool mode: the active breeze-mode icon (Normal / Breeze Away / Breezeless).
-- In any mode: the active preset icon (Sleep / Boost / Away), if one is set.
-- Defaults to Normal breeze icon when no special mode is active.
-
----
-
 ## Self-clean
 
-The self-clean button appears as a small pill in the card header. It:
+The self-clean button appears as an icon button in the card header. It:
 
 - Works while the AC is **on or off**.
 - Calls `button.press` on the `self_clean_btn` entity.
