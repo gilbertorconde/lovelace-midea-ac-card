@@ -1,5 +1,5 @@
 // =============================================================================
-// Midea AC Control Card  v3.0.0
+// Midea AC Control Card  v3.0.1
 // Dark "Home" design: dial, mode, fan, airflow and comfort controls on one page.
 //
 // Install via HACS (search "Midea AC Card") or manually:
@@ -365,7 +365,7 @@ function deriveEntities(cfg) {
 }
 
 
-const VERSION = '3.0.0';
+const VERSION = '3.0.1';
 
 // Dial geometry (viewBox 260×206): a 270° arc open at the bottom.
 const DIAL = { CX: 130, CY: 118, R: 96, START: 225, SWEEP: 270, W: 260, H: 206, TICKS: 40 };
@@ -516,6 +516,9 @@ ha-icon { --mdc-icon-size: 1em; display: inline-flex; }
 .alert { height: 30px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
   background: rgba(255,179,71,.14); color: var(--amber); }
 .alert.water { background: rgba(63,169,255,.16); color: var(--cool); }
+.alert, .iconbtn, .power { flex-shrink: 0; }
+/* Narrow: alerts shrink to their icons (the tooltip keeps the words) so the name keeps its room. */
+@container (max-width: 440px) { .alert { width: 30px; padding: 0; justify-content: center; } .alert .al { display: none; } }
 .power { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; background: var(--mc); color: #120a04;
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--mc) 18%, transparent), 0 10px 30px -8px var(--mc); }
 .power.off { background: rgba(255,255,255,.07); color: var(--text2); box-shadow: none; border: 1px solid var(--line); }
@@ -671,8 +674,8 @@ details[open] summary .chev { transform: rotate(180deg); }
 
     // Alerts and header buttons
     const alerts = [
-      this._entity('filter_alert')?.state === 'on' ? `<span class="alert" title="Filter needs cleaning">${ico('mdi:air-filter')}Filter</span>` : '',
-      this._entity('water_full')?.state === 'on' ? `<span class="alert water" title="Water tank full — empty the tank">${ico('mdi:water-alert')}Tank full</span>` : '',
+      this._entity('filter_alert')?.state === 'on' ? `<span class="alert" title="Filter needs cleaning">${ico('mdi:air-filter')}<span class="al">Filter</span></span>` : '',
+      this._entity('water_full')?.state === 'on' ? `<span class="alert water" title="Water tank full — empty the tank">${ico('mdi:water-alert')}<span class="al">Tank full</span></span>` : '',
     ].join('');
     const hasClean = this._present('self_clean_btn') || this._present('self_clean_sensor');
     const cleaning = this._entity('self_clean_sensor')?.state === 'on';

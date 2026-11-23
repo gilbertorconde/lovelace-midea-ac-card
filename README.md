@@ -45,6 +45,9 @@ Version: 3.0.0
 <details>
 <summary>Versions</summary>
 
+**3.0.1**
+- Fixed: on a narrow card the header buttons no longer get squashed. The filter and tank alerts shrink to their icons so the name keeps its room.
+
 **3.0.0**  
 New dark "Home" design. Every control is on one page instead of bottom sheets: two columns when the card is at least 660 px wide (for example in a dialog), one scrolling column on a phone.
 270° dial in the mode colour with tick marks, +/− buttons in their own row under it, and outside / inside / humidity / power tiles.
