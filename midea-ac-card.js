@@ -1,5 +1,5 @@
 // =============================================================================
-// Midea AC Control Card  v3.0.1
+// Midea AC Control Card  v3.1.0
 // Dark "Home" design: dial, mode, fan, airflow and comfort controls on one page.
 //
 // Install via HACS (search "Midea AC Card") or manually:
@@ -17,6 +17,7 @@
 //
 // Override any individual entity if its name differs (or set to null to disable):
 //   indoor_temp:   sensor.living_room_ac_indoor_temperature   # auto-derived
+//   indoor_humidity: sensor.living_room_ac_indoor_humidity    # auto-derived
 //   outdoor_temp:  sensor.living_room_ac_outdoor_temperature  # auto-derived
 //   power:         sensor.living_room_ac_power                # auto-derived
 //   fan_speed:     number.living_room_ac_fan_speed            # auto-derived
@@ -302,6 +303,7 @@ function deriveEntities(cfg) {
 
   const defaults = {
     indoor_temp:       `sensor.${n}_indoor_temperature`,
+    indoor_humidity:   `sensor.${n}_indoor_humidity`,
     outdoor_temp:      `sensor.${n}_outdoor_temperature`,
     power:             `sensor.${n}_power`,
     fan_speed:         `number.${n}_fan_speed`,
@@ -365,7 +367,7 @@ function deriveEntities(cfg) {
 }
 
 
-const VERSION = '3.0.1';
+const VERSION = '3.1.0';
 
 // Dial geometry (viewBox 260×206): a 270° arc open at the bottom.
 const DIAL = { CX: 130, CY: 118, R: 96, START: 225, SWEEP: 270, W: 260, H: 206, TICKS: 40 };
@@ -412,6 +414,8 @@ function loadFont() {
 
 const fmtT = v => (Math.round(v * 10) / 10).toFixed(1);
 const ico = (name) => `<ha-icon icon="${name}"></ha-icon>`;
+// Attributes that make a read-only value open HA's more-info dialog (history) for its entity.
+const mi = (id) => id ? ` data-more-info="${id}" role="button" tabindex="0"` : '';
 
 // ── Card class ────────────────────────────────────────────────────────────────
 class AcCard extends HTMLElement {
@@ -465,6 +469,7 @@ class AcCard extends HTMLElement {
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     this.shadowRoot.addEventListener('click', e => this._onClick(e));
     this.shadowRoot.addEventListener('input', e => this._onInput(e));
+    this.shadowRoot.addEventListener('keydown', e => this._onKeyDown(e));
     // <details> toggle does not bubble; capture it to remember open sections.
     this.shadowRoot.addEventListener('toggle', e => {
       const k = e.target?.dataset?.k;
@@ -556,9 +561,20 @@ ha-icon { --mdc-icon-size: 1em; display: inline-flex; }
 .step:hover { background: rgba(255,255,255,.1); }
 .steps span { font-size: 12px; color: var(--text3); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.stats.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stat { border-radius: 14px; background: rgba(0,0,0,.25); padding: 9px 10px; min-width: 0; }
 .stat span { font-size: 11px; color: var(--text3); display: flex; gap: 4px; align-items: center; white-space: nowrap; }
 .stat b { display: block; font-size: 15px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+
+/* read-only values that open the entity's history (more-info) */
+[data-more-info] { cursor: pointer; transition: background .15s, color .15s; }
+[data-more-info]:focus { outline: none; }
+[data-more-info]:focus-visible { outline: 2px solid color-mix(in srgb, var(--mc) 60%, transparent); outline-offset: 1px; }
+[data-more-info]:hover, [data-more-info]:focus-visible { background: rgba(255,255,255,.06); color: var(--text); border-radius: 8px; }
+.stat[data-more-info]:hover, .stat[data-more-info]:focus-visible { background: rgba(255,255,255,.05); border-radius: 14px; }
+.dial .now[data-more-info] { pointer-events: auto; padding: 0 6px; margin-left: -6px; margin-right: -6px; }
+.note [data-more-info] { padding: 0 3px; margin: 0 -3px; }
+.offhero .big[data-more-info]:hover, .offhero .big[data-more-info]:focus-visible { border-radius: 14px; }
 
 /* segmented mode control */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; background: rgba(0,0,0,.28); padding: 5px; border-radius: 16px; }
@@ -714,13 +730,19 @@ details[open] summary .chev { transform: rotate(180deg); }
     const pUnit = pEnt?.attributes?.unit_of_measurement || 'W';
     const pow = pNum == null ? null : `${/^kw$/i.test(pUnit) ? pNum.toFixed(1) : Math.round(pNum)} ${pUnit}`;
     const cells = [
-      outT && ['mdi:weather-partly-cloudy', 'Outside', outT],
-      withInside && cur && ['mdi:home-outline', 'Inside', cur],
-      hum && ['mdi:water-outline', 'Humidity', hum],
-      pow && ['mdi:flash-outline', 'Power', pow],
+      outT && ['mdi:weather-partly-cloudy', 'Outside', outT, out.entity_id],
+      withInside && cur && ['mdi:home-outline', 'Inside', cur, this._insideId()],
+      hum && ['mdi:water-outline', 'Humidity', hum, this._entity('indoor_humidity')?.entity_id || cfg.entity],
+      pow && ['mdi:flash-outline', 'Power', pow, pEnt.entity_id],
     ].filter(Boolean);
     if (!cells.length) return '';
-    return `<div class="stats">${cells.map(([i, l, v]) => `<div class="stat"><span>${ico(i)}${l}</span><b>${v}</b></div>`).join('')}</div>`;
+    return `<div class="stats${cells.length === 4 ? ' n4' : ''}">${cells.map(([i, l, v, id]) => `<div class="stat"${mi(id)}><span>${ico(i)}${l}</span><b>${v}</b></div>`).join('')}</div>`;
+  }
+
+  // The room temperature and humidity shown come from the climate entity; their
+  // history lives on the indoor sensors when those exist.
+  _insideId() {
+    return this._entity('indoor_temp')?.entity_id || this._config.entity;
   }
 
   _dialSvg(temp, minT, maxT, mc) {
@@ -762,7 +784,7 @@ details[open] summary .chev { transform: rotate(180deg); }
         <div class="ctr">
           <div class="act">${act}</div>
           <div class="set"><span id="arc-temp-val">${fmtT(target)}</span><sup>°C</sup></div>
-          ${cur ? `<div class="now">${ico('mdi:home-thermometer-outline')} ${cur}</div>` : ''}
+          ${cur ? `<div class="now"${mi(this._insideId())}>${ico('mdi:home-thermometer-outline')} ${cur}</div>` : ''}
         </div>
       </div>
       <div class="steps">
@@ -799,7 +821,7 @@ details[open] summary .chev { transform: rotate(180deg); }
     <div class="left">
       <div class="offhero">
         <div class="label">Room now</div>
-        <div class="big">${cur}<sup>°C</sup></div>
+        <div class="big"${attrs.current_temperature != null ? mi(this._insideId()) : ''}>${cur}<sup>°C</sup></div>
         ${target ? `<p>${target}</p>` : ''}
         ${this._statsHtml(attrs, false)}
       </div>
@@ -834,6 +856,10 @@ details[open] summary .chev { transform: rotate(180deg); }
     const i = named.indexOf(attrs.fan_mode);
     return i < 0 ? 0 : Math.round((i + 1) / named.length * 100);
   }
+  _fanSpeedLive() {
+    const fs = this._entity('fan_speed');
+    return !!fs && !isUnavail(fs) && this._hass.states[this._config.entity]?.attributes?.fan_mode !== 'auto';
+  }
   _fanLabel(attrs, pct) {
     if (attrs.fan_mode === 'auto') return 'Auto';
     const fs = this._entity('fan_speed');
@@ -849,7 +875,7 @@ details[open] summary .chev { transform: rotate(180deg); }
     const auto = attrs.fan_mode === 'auto';
     const pct = auto ? 0 : this._fanPct(attrs);
     const hasAuto = (attrs.fan_modes || []).includes('auto');
-    return `<div class="blk"><div class="bh"><span class="label">Fan speed</span><small id="fan-lbl">${this._fanLabel(attrs, pct)}${auto ? ' · tap the bars to set a speed' : ''}</small></div>
+    return `<div class="blk"><div class="bh"><span class="label">Fan speed</span><small id="fan-lbl"${this._fanSpeedLive() ? mi(this._config.fan_speed) : ''}>${this._fanLabel(attrs, pct)}${auto ? ' · tap the bars to set a speed' : ''}</small></div>
       <div class="fan">
         <div class="bars${auto ? ' auto' : ''}" data-drag>${this._barsHtml(pct)}</div>
         ${hasAuto ? `<button class="chipbtn${auto ? ' on' : ''}" data-action="toggle-fan-auto">${ico('mdi:fan-auto')}Auto</button>` : ''}
@@ -892,7 +918,8 @@ details[open] summary .chev { transform: rotate(180deg); }
       : sm === 'horizontal' ? 'Swinging left and right'
       : 'Tap a position again to release it';
     const hNow = this._fmtSensor('louvers_h_angle'), vNow = this._fmtSensor('louvers_v_angle');
-    const actual = (hNow || vNow) ? `<p class="note">Louvers now:${vNow ? ` ↕ ${vNow}` : ''}${hNow ? ` ↔ ${hNow}` : ''}</p>` : '';
+    const cfg = this._config;
+    const actual = (hNow || vNow) ? `<p class="note">Louvers now:${vNow ? ` <span${mi(cfg.louvers_v_angle)}>↕ ${vNow}</span>` : ''}${hNow ? ` <span${mi(cfg.louvers_h_angle)}>↔ ${hNow}</span>` : ''}</p>` : '';
     return `<div class="blk"><div class="bh"><span class="label">Airflow</span><small>${desc}</small></div>
       <div class="air">${group('v')}${group('h')}</div>${actual}</div>`;
   }
@@ -968,7 +995,7 @@ details[open] summary .chev { transform: rotate(180deg); }
     }).join('');
     const label = acOff ? 'Turn on in' : 'Turn off in';
     const now = cur > 0 ? `${acOff ? 'Turns on' : 'Turns off'} in ${fmtDuration(cur)}` : 'No timer';
-    return `<div class="blk"><div class="bh"><span class="label">${label}</span><small>${now}</small></div><div class="chips">${chips}</div></div>`;
+    return `<div class="blk"><div class="bh"><span class="label">${label}</span><small${cur > 0 ? mi(ent.entity_id) : ''}>${now}</small></div><div class="chips">${chips}</div></div>`;
   }
 
   _extrasHtml() {
@@ -985,7 +1012,7 @@ details[open] summary .chev { transform: rotate(180deg); }
     if (sp) {
       const un = isUnavail(sp), faOn = this._entity('fresh_air')?.state === 'on';
       const v = un ? 50 : Math.min(Math.round(+sp.state), 100);
-      parts.push(`<label class="range">Fresh air speed <input type="range" id="fresh-air-slider" min="${sp.attributes?.min ?? 1}" max="${sp.attributes?.max ?? 100}" value="${v}" ${un || !faOn ? 'disabled' : ''}><b id="fresh-air-val">${un ? '—' : v + '%'}</b></label>`);
+      parts.push(`<label class="range">Fresh air speed <input type="range" id="fresh-air-slider" min="${sp.attributes?.min ?? 1}" max="${sp.attributes?.max ?? 100}" value="${v}" ${un || !faOn ? 'disabled' : ''}><b id="fresh-air-val"${mi(sp.entity_id)}>${un ? '—' : v + '%'}</b></label>`);
     }
     const cm = this._entity('cosy_sleep_mode');
     if (cm) {
@@ -1007,7 +1034,7 @@ details[open] summary .chev { transform: rotate(180deg); }
     const summary = [this._fmtSensor('outdoor_unit_power'), this._fmtSensor('compressor_frequency')].filter(Boolean).join(' · ');
     const secs = DIAG_SECTIONS.map(sec => {
       const rows = sec.rows.filter(r => this._present(r.key))
-        .map(r => `<div><span>${r.name}</span><b>${this._fmtSensor(r.key) ?? '—'}</b></div>`).join('');
+        .map(r => `<div${mi(this._config[r.key])}><span>${r.name}</span><b>${this._fmtSensor(r.key) ?? '—'}</b></div>`).join('');
       return rows ? `<div class="label" style="margin:4px 0 0 2px">${sec.title}</div><div class="diag">${rows}</div>` : '';
     }).join('');
     return `<details data-k="diag" ${this._open.has('diag') ? 'open' : ''}>
@@ -1148,8 +1175,14 @@ details[open] summary .chev { transform: rotate(180deg); }
 
   // ── Click handling ────────────────────────────────────────────────────────
   _onClick(e) {
-    const el = e.composedPath().find(n => n instanceof Element && n.dataset?.action);
-    if (!el || el.disabled) return;
+    const path = e.composedPath();
+    const el = path.find(n => n instanceof Element && n.dataset?.action);
+    if (!el) {
+      const info = path.find(n => n instanceof Element && n.dataset?.moreInfo);
+      if (info) { e.preventDefault(); this._moreInfo(info.dataset.moreInfo); }
+      return;
+    }
+    if (el.disabled) return;
     const action = el.dataset.action, val = el.dataset.val, eid = el.dataset.entity;
     const { _hass: hass, _config: cfg } = this;
     const climate = hass.states[cfg.entity];
@@ -1252,6 +1285,18 @@ details[open] summary .chev { transform: rotate(180deg); }
     this._fanTimer = setTimeout(() => {
       this._call('number', 'set_value', { entity_id: this._config.fresh_air_fan_speed, value: +v });
     }, 400);
+  }
+
+  _onKeyDown(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const id = e.target?.dataset?.moreInfo;
+    if (!id) return;
+    e.preventDefault();
+    this._moreInfo(id);
+  }
+
+  _moreInfo(entityId) {
+    this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId } }));
   }
 
   _call(domain, service, data) {

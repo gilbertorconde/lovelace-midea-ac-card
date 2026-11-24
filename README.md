@@ -38,12 +38,16 @@ Key features at a glance:
 ## Credits
 
 Author: [gil](https://github.com/condegil) — 2026  
-Version: 3.0.0
+Version: 3.1.0
 
 ## Changelog
 
 <details>
 <summary>Versions</summary>
+
+**3.1.0**
+- Readings open their history: tap (or Enter/Space) any read-only value to open Home Assistant's more-info dialog for the entity behind it. Covers the outside / inside / humidity / power tiles (the Humidity tile uses the new auto-derived `indoor_humidity` sensor when it exists), the room temperature under the dial and on the off screen, the fan-speed %, the actual louver angles, the running timer, the fresh-air speed and every Diagnostics row. Controls keep their normal behaviour.
+- With all four tiles (outside, inside, humidity, power) they sit in a 2 × 2 grid instead of one tight row.
 
 **3.0.1**
 - Fixed: on a narrow card the header buttons no longer get squashed. The filter and tank alerts shrink to their icons so the name keeps its room.
@@ -110,6 +114,7 @@ All companion entity IDs are auto-derived from the climate entity name (see [Aut
 | --------------- | -------- | ------- | --------------------------------------------------------------- |
 | `entity`        | ✅       | —       | Main `climate.*` entity                                         |
 | `indoor_temp`   | ☑        | auto    | `sensor.*` for indoor temperature                               |
+| `indoor_humidity` | ☑      | auto    | `sensor.*` for indoor humidity (history for the Humidity tile)  |
 | `outdoor_temp`  | ☑        | auto    | `sensor.*` for outdoor temperature                              |
 | `fan_speed`     | ☑        | auto    | `number.*` for fan speed percentage (0–100 %)                   |
 | `display`       | ☑        | auto    | `switch.*` for LED display on/off                               |
@@ -137,6 +142,7 @@ entity: climate.living_room_ac
 type: custom:midea-ac-card
 entity: climate.living_room_ac
 indoor_temp: sensor.living_room_ac_indoor_temperature
+indoor_humidity: sensor.living_room_ac_indoor_humidity
 outdoor_temp: sensor.living_room_ac_outdoor_temperature
 fan_speed: number.living_room_ac_fan_speed
 display: switch.living_room_ac_display
@@ -170,6 +176,7 @@ For `entity: climate.living_room_ac` the derived IDs are:
 | Key                 | Derived entity ID                              |
 | ------------------- | ---------------------------------------------- |
 | `indoor_temp`       | `sensor.living_room_ac_indoor_temperature`     |
+| `indoor_humidity`   | `sensor.living_room_ac_indoor_humidity`        |
 | `outdoor_temp`      | `sensor.living_room_ac_outdoor_temperature`    |
 | `fan_speed`         | `number.living_room_ac_fan_speed`              |
 | `display`           | `switch.living_room_ac_display`                |
